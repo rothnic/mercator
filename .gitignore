@@ -1,0 +1,7 @@
+node_modules
+.pnpm-store
+.env
+apps/service/.env
+apps/service/mastra.db
+coverage
+dist
