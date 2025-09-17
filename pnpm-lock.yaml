@@ -53,6 +53,9 @@ importers:
       '@mercator/fixtures':
         specifier: workspace:*
         version: link:../../packages/fixtures
+      cheerio:
+        specifier: ^1.0.0
+        version: 1.1.2
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -87,6 +90,10 @@ importers:
       domhandler:
         specifier: ^5.0.3
         version: 5.0.3
+    devDependencies:
+      '@types/domhandler':
+        specifier: ^3.1.0
+        version: 3.1.0
 
   packages/core:
     dependencies:
@@ -1579,6 +1586,10 @@ packages:
 
   '@types/diff-match-patch@1.0.36':
     resolution: {integrity: sha512-xFdR6tkm0MWvBfO8xXCSsinYxHcqkQUlcHeSpMC2ukzOb6lwQAfDmW+Qt0AvlGd8HpsS28qKsB+oPeJn9I39jg==}
+
+  '@types/domhandler@3.1.0':
+    resolution: {integrity: sha512-3AOfYUR/uv83OKeNzeJimXt6NRk/eCHkfOPp5Q8yX7ceE/WxxyDgEWnKb+b54bqVZmgjxMZLtWKDdmmREpZjTA==}
+    deprecated: This is a stub types definition. domhandler provides its own type definitions, so you do not need this installed.
 
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
@@ -5343,6 +5354,10 @@ snapshots:
       '@types/node': 20.19.15
 
   '@types/diff-match-patch@1.0.36': {}
+
+  '@types/domhandler@3.1.0':
+    dependencies:
+      domhandler: 5.0.3
 
   '@types/estree@1.0.8': {}
 

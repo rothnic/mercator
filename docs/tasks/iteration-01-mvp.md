@@ -40,8 +40,8 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 
 | Priority | Task ID | Description | Deliverables | Depends On | Status | Notes |
 |----------|---------|-------------|--------------|------------|--------|-------|
-| 1 | I01-F4-T1 | Define agent context contracts and orchestrator skeleton covering Pass 1–3 with stubbed agents producing ExpectedData and candidate recipe steps. | `packages/core/src/agents/` (interfaces), orchestrator in `apps/service` or shared package, unit tests for control flow. | I01-F2-T2, I01-F3-T2 | Todo | Use deterministic prompts/stubs; no LLM calls. |
-| 2 | I01-F4-T2 | Implement selector recipe synthesis for fixture (map expected fields to CSS selectors, apply transforms/tolerances). | Module producing recipe object, tests verifying selectors match fixture DOM. | I01-F4-T1 | Todo | Capture provenance/evidence matrix structure even if stubbed. |
+| 1 | I01-F4-T1 | Define agent context contracts and orchestrator skeleton covering Pass 1–3 with stubbed agents producing ExpectedData and candidate recipe steps. | `packages/core/src/agents/` (interfaces), orchestrator in `apps/service` or shared package, unit tests for control flow. | I01-F2-T2, I01-F3-T2 | Todo | Use deterministic prompts/stubs; no LLM calls. Fetch expectations and selectors from a domain/path rule repository. |
+| 2 | I01-F4-T2 | Implement selector recipe synthesis for fixture (map expected fields to CSS selectors, apply transforms/tolerances). | Module producing recipe object, tests verifying selectors match fixture DOM. | I01-F4-T1 | Todo | Capture provenance/evidence matrix structure even if stubbed. Field configuration should be stored in the rule repository, not hard-coded in orchestration. |
 | 3 | I01-F4-T3 | Implement validator pass computing per-field/document confidence using tolerance helpers and Zod. | Validation module + tests verifying success/failure cases for fixture variations. | I01-F4-T2, I01-F2-T3 | Todo | Include enforcement of stopping criteria for title/price. |
 
 ### F5. Service, CLI & Recipe Store
