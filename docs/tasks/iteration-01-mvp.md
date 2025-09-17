@@ -26,8 +26,8 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 | Priority | Task ID | Description | Deliverables | Depends On | Status | Notes |
 |----------|---------|-------------|--------------|------------|--------|-------|
 | 1 | I01-F2-T1 | Create `packages/core` with TypeScript models + Zod schemas for Product (subset needed for MVP), Money, Breadcrumb, and supporting types per Appendix A. | `packages/core/src/schemas.ts`, unit tests validating schema behavior. | I01-F1-T1 | Done | Initial `@mercator/core` domain schemas and tests. |
-| 2 | I01-F2-T2 | Define unified recipe schema (TypeScript + Zod) capturing selector steps, transforms, tolerances, validators, metrics, lifecycle metadata. | `packages/core/src/recipe.ts`, schema tests ensuring optional Playwright fields for later iterations. | I01-F2-T1 | Todo | Base tolerances on Appendix B defaults. |
-| 3 | I01-F2-T3 | Record default tolerance + transform configs and expose typed helpers. | `packages/core/src/tolerances.ts`, `transforms.ts`, tests for `text.collapse`, `money.parse`, `url.resolve`. | I01-F2-T2 | Todo | Include deterministic behavior & locale assumptions docstring. |
+| 2 | I01-F2-T2 | Define unified recipe schema (TypeScript + Zod) capturing selector steps, transforms, tolerances, validators, metrics, lifecycle metadata. | `packages/core/src/recipe.ts`, schema tests ensuring optional Playwright fields for later iterations. | I01-F2-T1 | Done | Implemented recipe schema plus helpers in `@mercator/core`, including lifecycle + provenance coverage. |
+| 3 | I01-F2-T3 | Record default tolerance + transform configs and expose typed helpers. | `packages/core/src/tolerances.ts`, `transforms.ts`, tests for `text.collapse`, `money.parse`, `url.resolve`. | I01-F2-T2 | Done | Added deterministic defaults + helper exports with defensive-copy tests. |
 
 ### F3. Fixtures & Tool Surface
 
@@ -56,7 +56,7 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 
 | Priority | Task ID | Description | Deliverables | Depends On | Status | Notes |
 |----------|---------|-------------|--------------|------------|--------|-------|
-| 1 | I01-F6-T1 | Write unit tests for transforms, tolerances, and recipe schema invariants. | Test suite covering success/failure cases. | I01-F2-T3 | Todo | Add snapshot tests for tolerance normalization. |
+| 1 | I01-F6-T1 | Write unit tests for transforms, tolerances, and recipe schema invariants. | Test suite covering success/failure cases. | I01-F2-T3 | Done | Covered recipe parsing and transform/tolerance helpers via Vitest. |
 | 2 | I01-F6-T2 | Implement `E2E-Gen` and `E2E-Exec` tests covering full loop on synthetic fixture. | Integration tests verifying recipe generation/execution parity and determinism. | I01-F4-T3, I01-F5-T2 | Todo | Include budget assertions and evidence matrix checks. |
 | 3 | I01-F6-T3 | Instrument minimal metrics logging (query counts, duration) and expose via structured logs. | Logging utility, doc snippet on metrics interpretation. | I01-F4-T1 | Todo | Metrics stored locally for now; later iterations add exporters. |
 
