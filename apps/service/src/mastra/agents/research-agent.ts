@@ -3,6 +3,12 @@ import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { storage } from '../stores';
 import { dataTool } from '../tools/data-tool';
+import {
+  fixtureHtmlListChunksTool,
+  fixtureHtmlQueryTool,
+  fixtureMarkdownSearchTool,
+  fixtureVisionOcrTool
+} from '../tools/fixture-tools';
 
 const researchMemory: Memory = new Memory({
   storage,
@@ -28,6 +34,10 @@ export const researchAgent: Agent<'researchAgent'> = new Agent({
   model: openai('gpt-4o-mini'),
   memory: researchMemory,
   tools: {
-    data_tool: dataTool
+    data_tool: dataTool,
+    fixture_vision_ocr: fixtureVisionOcrTool,
+    fixture_html_query: fixtureHtmlQueryTool,
+    fixture_html_chunks: fixtureHtmlListChunksTool,
+    fixture_markdown_search: fixtureMarkdownSearchTool
   }
 });

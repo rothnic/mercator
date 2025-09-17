@@ -111,6 +111,9 @@ describe('default helpers', () => {
     const next = getDefaultTolerance('title');
 
     expect(next.kind).toBe('text');
+    if (next.kind !== 'text') {
+      throw new Error('Unexpected tolerance kind');
+    }
     expect(next.caseSensitive).toBe(false);
   });
 });

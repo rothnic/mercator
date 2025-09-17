@@ -1,0 +1,19 @@
+{
+  "name": "@mercator/agent-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@mercator/core": "workspace:*",
+    "@mercator/fixtures": "workspace:*",
+    "cheerio": "^1.0.0",
+    "domhandler": "^5.0.3",
+    "domelementtype": "^2.3.0"
+  },
+  "scripts": {
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run"
+  }
+}

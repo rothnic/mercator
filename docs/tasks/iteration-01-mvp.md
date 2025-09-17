@@ -33,8 +33,8 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 
 | Priority | Task ID | Description | Deliverables | Depends On | Status | Notes |
 |----------|---------|-------------|--------------|------------|--------|-------|
-| 1 | I01-F3-T1 | Add synthetic product fixture assets (HTML, markdown, screenshot) and loader utilities. | `fixtures/product-simple.html`, `.md`, `.png`, loader module exporting typed accessors. | I01-F1-T1 | Todo | Document fixture structure & expected values in `docs/fixtures/product-simple.md`. |
-| 2 | I01-F3-T2 | Implement minimal agent tool interfaces for vision OCR stub, chunked HTML queries, markdown search returning deterministic data from fixtures. | `packages/agent-tools/src/index.ts`, stub implementations referencing fixtures. | I01-F3-T1, I01-F2-T2 | Todo | Tools should log usage for later observability. |
+| 1 | I01-F3-T1 | Add synthetic product fixture assets (HTML, markdown, screenshot) and loader utilities. | `fixtures/product-simple.html`, `.md`, `.png.base64`, loader module exporting typed accessors. | I01-F1-T1 | Done | Adds kettle fixture assets, loader, and documentation. |
+| 2 | I01-F3-T2 | Implement minimal agent tool interfaces for vision OCR stub, chunked HTML queries, markdown search returning deterministic data from fixtures. | `packages/agent-tools/src/index.ts`, stub implementations referencing fixtures. | I01-F3-T1, I01-F2-T2 | Done | Stubbed vision, HTML, and markdown tools with usage logging. |
 
 ### F4. Agent Orchestration Slice
 
