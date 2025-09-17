@@ -28,6 +28,17 @@ The root `package.json` exposes shared scripts:
 | `pnpm format` | Verify formatting with Prettier. |
 | `pnpm dev:agents` | Start the Mastra development playground for the service app. |
 
+## Continuous Integration
+
+Run the lint and test scripts locally before opening a pull request to mirror continuous integration expectations:
+
+```bash
+pnpm lint
+pnpm test
+```
+
+GitHub Actions runs the same commands on every push and pull request via `.github/workflows/ci.yml`.
+
 Each package or app can add additional scripts that are executed via `pnpm --filter`.
 
 ## Repository Layout

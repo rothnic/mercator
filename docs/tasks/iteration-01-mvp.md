@@ -19,7 +19,7 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 | Priority | Task ID | Description | Deliverables | Depends On | Status | Notes |
 |----------|---------|-------------|--------------|------------|--------|-------|
 | 1 | I01-F1-T1 | Bootstrap pnpm workspace with `apps/` and `packages/` folders, TypeScript config, lint/test scripts, and shared tsconfig/eslint/prettier configs. | pnpm workspace config, root `package.json`, lint/test npm scripts, baseline README updates. | — | Done | Set up pnpm workspace plus Mastra service app scaffolding. |
-| 2 | I01-F1-T2 | Configure basic CI (GitHub Actions) running lint and tests; document local dev commands. | `.github/workflows/ci.yml`, docs update in README. | I01-F1-T1 | Todo | Optional skip if CI unavailable; document rationale. |
+| 2 | I01-F1-T2 | Configure basic CI (GitHub Actions) running lint and tests; document local dev commands. | `.github/workflows/ci.yml`, docs update in README. | I01-F1-T1 | Done | Optional skip if CI unavailable; document rationale. |
 
 ### F2. Core Domain & Recipe Schema
 
