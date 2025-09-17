@@ -18,6 +18,7 @@ packages/
 - **Coordinator** manages the multi-pass workflow (vision → HTML retrieval → reconciliation) and enforces budgets/stopping criteria.
 - **User Proxy, Extractor, Validator, Reviewer, Storage** agents share a typed context and communicate through deterministically logged tool invocations.
 - **Tool layer** exposes screenshot OCR, chunked HTML queries, JSON-LD extraction, transform catalog lookups, and provenance recording.
+- **Rule repository** provides domain/path-specific schemas, evidence plans, and selector recipes so orchestration can evolve without code changes.
 
 ### 2. Recipe Abstraction
 - Single schema representing selector, Playwright, or hybrid extraction strategies.

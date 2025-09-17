@@ -63,6 +63,19 @@ The screenshot placeholder intentionally renders to a solid color while the fixt
 OCR transcript summarizing the hero section. This allows the vision tool stub to return text without performing
 image processing.
 
+## Rule Configuration Seed
+
+The orchestrator no longer hard-codes selectors or chunk mappings for the fixture. Instead a rule configuration is
+derived from this fixture and stored alongside the service tests (`apps/service/src/orchestrator/__fixtures__/product-simple.ts`).
+That seed describes:
+
+- the expected `Product` snapshot persisted in the rule repository,
+- evidence collection plans for each field (HTML selectors, markdown searches, OCR references), and
+- field recipe definitions including transforms, tolerances, and provenance hints.
+
+Tests hydrate an in-memory repository with this configuration to mimic fetching domain/path-specific rules from a database.
+Updating fixture data requires regenerating the rule seed rather than editing orchestrator logic.
+
 ## Usage
 
 Import the loader in tests or tools to obtain strongly typed accessors:
