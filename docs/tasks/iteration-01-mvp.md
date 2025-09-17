@@ -25,7 +25,7 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 
 | Priority | Task ID | Description | Deliverables | Depends On | Status | Notes |
 |----------|---------|-------------|--------------|------------|--------|-------|
-| 1 | I01-F2-T1 | Create `packages/core` with TypeScript models + Zod schemas for Product (subset needed for MVP), Money, Breadcrumb, and supporting types per Appendix A. | `packages/core/src/schemas.ts`, unit tests validating schema behavior. | I01-F1-T1 | Todo | Keep scope to MVP-required fields (title, price, image, canonicalUrl, breadcrumb, aggregateRating). |
+| 1 | I01-F2-T1 | Create `packages/core` with TypeScript models + Zod schemas for Product (subset needed for MVP), Money, Breadcrumb, and supporting types per Appendix A. | `packages/core/src/schemas.ts`, unit tests validating schema behavior. | I01-F1-T1 | Done | Initial `@mercator/core` domain schemas and tests. |
 | 2 | I01-F2-T2 | Define unified recipe schema (TypeScript + Zod) capturing selector steps, transforms, tolerances, validators, metrics, lifecycle metadata. | `packages/core/src/recipe.ts`, schema tests ensuring optional Playwright fields for later iterations. | I01-F2-T1 | Todo | Base tolerances on Appendix B defaults. |
 | 3 | I01-F2-T3 | Record default tolerance + transform configs and expose typed helpers. | `packages/core/src/tolerances.ts`, `transforms.ts`, tests for `text.collapse`, `money.parse`, `url.resolve`. | I01-F2-T2 | Todo | Include deterministic behavior & locale assumptions docstring. |
 
