@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { RecipeSchema, type LifecycleState, type Recipe } from '@mercator/core';
+import {
+  RecipeSchema,
+  type LifecycleEvent,
+  type LifecycleState,
+  type Recipe
+} from '@mercator/core';
 
 import type {
   CreateDraftOptions,
@@ -23,12 +28,25 @@ const isLifecycleState = (value: unknown): value is LifecycleState => {
   return value === 'draft' || value === 'candidate' || value === 'stable' || value === 'retired';
 };
 
+const coerceLifecycleDate = (value: unknown): Date => {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    return new Date(value);
+  }
+
+  throw new TypeError('Lifecycle event timestamp must be a Date, string, or number.');
+};
+
 const normalizeHistory = (
-  history: Recipe['lifecycle']['history']
-): Recipe['lifecycle']['history'] => history.map((event) => ({
-  ...event,
-  at: new Date(event.at)
-}));
+  history: readonly LifecycleEvent[]
+): LifecycleEvent[] =>
+  history.map((event) => ({
+    ...event,
+    at: coerceLifecycleDate(event.at)
+  }));
 
 export interface LocalFileSystemRecipeStoreOptions {
   readonly directory: string;
@@ -57,7 +75,7 @@ export class LocalFileSystemRecipeStore implements RecipeStore {
     const id = candidate.id ?? randomUUID();
     const now = options.when ?? this.now();
 
-    const history = normalizeHistory(candidate.lifecycle.history);
+    const history = normalizeHistory(candidate.lifecycle.history as readonly LifecycleEvent[]);
     const lastEvent = history.at(-1);
     const draftHistory =
       lastEvent && lastEvent.state === 'draft'
@@ -143,7 +161,7 @@ export class LocalFileSystemRecipeStore implements RecipeStore {
     }
 
     const now = options.when ?? this.now();
-    const history = normalizeHistory(record.recipe.lifecycle.history);
+    const history = normalizeHistory(record.recipe.lifecycle.history as readonly LifecycleEvent[]);
     const promotedHistory = [
       ...history,
       {
@@ -250,7 +268,7 @@ export class LocalFileSystemRecipeStore implements RecipeStore {
     const recipe = RecipeSchema.parse(record.recipe);
     const lifecycle = {
       ...recipe.lifecycle,
-      history: normalizeHistory(recipe.lifecycle.history)
+      history: normalizeHistory(recipe.lifecycle.history as readonly LifecycleEvent[])
     };
 
     return {

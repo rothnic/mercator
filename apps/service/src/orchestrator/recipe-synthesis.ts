@@ -1,4 +1,4 @@
-import { RecipeSchema } from '@mercator/core';
+import { RecipeSchema, type RecipeFieldId } from '@mercator/core';
 import type { RecipeEvidenceRow, RecipeSynthesisSummary } from '@mercator/core/agents';
 
 import type { DocumentRuleSet, FieldRuleDefinition } from './rule-repository.js';
@@ -22,7 +22,9 @@ export const buildRecipeFromRuleSet = (options: RecipeSynthesisOptions): RecipeS
   const { ruleSet, now } = options;
   const fields = ruleSet.fieldRules.map((definition) => definition.recipe);
   const evidenceMatrix = ruleSet.fieldRules.map((definition) => buildEvidenceRow(definition));
-  const fieldLookup = new Map(ruleSet.fieldRules.map((definition) => [definition.recipe.fieldId, definition]));
+  const fieldLookup = new Map<RecipeFieldId, FieldRuleDefinition>(
+    ruleSet.fieldRules.map((definition) => [definition.recipe.fieldId, definition])
+  );
 
   const timestamp = now.toISOString();
 
@@ -51,12 +53,15 @@ export const buildRecipeFromRuleSet = (options: RecipeSynthesisOptions): RecipeS
         }
       ]
     },
-    provenance: evidenceMatrix.map((row) => ({
-      fieldId: row.fieldId,
-      evidence: row.selectors.join(' | '),
-      confidence: fieldLookup.get(row.fieldId)?.confidence ?? 0.6,
-      notes: row.notes
-    }))
+    provenance: evidenceMatrix.map((row) => {
+      const fieldId: RecipeFieldId = row.fieldId;
+      return {
+        fieldId,
+        evidence: row.selectors.join(' | '),
+        confidence: fieldLookup.get(fieldId)?.confidence ?? 0.6,
+        notes: row.notes
+      };
+    })
   });
 
   return {

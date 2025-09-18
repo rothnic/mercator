@@ -77,9 +77,6 @@ export class RecipeWorkflowService {
 
     const { data: recipe } = parseResult;
 
-    // The recipe has been validated via Zod safeParse, but zod's typings cause
-    // eslint to treat the value as `any` here.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const stored = await this.store.createDraft(recipe, {
       actor: options.actor,
       notes: 'Recipe generated via orchestration.',
@@ -89,7 +86,7 @@ export class RecipeWorkflowService {
     return { stored, orchestration, document };
   }
 
-  async promoteRecipe(id: string, options: PromoteRecipeOptions = {}): Promise<StoredRecipe> {
+  promoteRecipe(id: string, options: PromoteRecipeOptions = {}): Promise<StoredRecipe> {
     return this.store.promote(id, {
       actor: options.actor,
       notes: options.notes ?? 'Promoted via workflow service.',
