@@ -13,7 +13,9 @@ export default defineConfig({
     alias: {
       '@mercator/core': resolve(__dirname, '../../packages/core/src/index.ts'),
       '@mercator/fixtures': resolve(__dirname, '../../packages/fixtures/src/index.ts'),
-      '@mercator/agent-tools': resolve(__dirname, '../../packages/agent-tools/src/index.ts')
+      '@mercator/agent-tools': resolve(__dirname, '../../packages/agent-tools/src/index.ts'),
+      '@mercator/recipe-store': resolve(__dirname, '../../packages/recipe-store/src/index.ts'),
+      commander: resolve(__dirname, './node_modules/commander/esm.mjs')
     }
   }
 });
