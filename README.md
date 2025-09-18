@@ -61,8 +61,8 @@ Additional apps (e.g., `reviewer-ui`) and packages (`core`, `sdk`, `agent-tools`
 
 ## Current State & Limitations
 
-The workflow can fetch live HTML for rule-backed domains (e.g., the demo `product-simple` catalogue), run the orchestration
-passes, and promote the resulting recipe so `/parse` and the CLI reuse those rules without re-invoking agents. Rule discovery,
-automatic recipe targeting, and cost-aware budgeting remain open items tracked in the task backlog. CLI and HTTP entrypoints
-accept either fixture inputs or URLs; requests that lack a stable recipe will fail until a generation/promotion cycle runs for
-that document.
+The workflow currently relies on the seeded `product-simple` rule set when generating recipes; arbitrary URLs without stored
+rules will error until Iteration I01 closes out tasks `I01-F4-T5`, `I01-F5-T3`, and `I01-F5-T4`. Those items teach the agent
+slice to analyze fetched HTML directly and persist the resulting recipe with domain metadata so `/parse` and the CLI can reuse
+it without rerunning orchestration. CLI and HTTP entrypoints already accept either fixture inputs or URLs; once the remaining
+tasks land, a generation/promotion cycle on any product page will unlock deterministic parsing for that URL.
