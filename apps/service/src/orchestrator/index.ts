@@ -5,6 +5,7 @@ import {
   type AgentToolInvocation,
   type DocumentValidationResult,
   type ExpectedDataSummary,
+  type OrchestrationPassId,
   type OrchestrationResult,
   type PassSummary,
   type RecipeSynthesisSummary
@@ -45,6 +46,61 @@ const createBudget = (start: number, override?: Partial<AgentBudget>): AgentBudg
   startedAt: start
 });
 
+const createBudgetGuard = (
+  budget: AgentBudget,
+  start: number,
+  now: () => Date
+) => {
+  let executedPasses = 0;
+  let totalToolInvocations = 0;
+
+  const ensureDurationWithinLimit = (timestamp: number, passId: OrchestrationPassId) => {
+    const elapsed = timestamp - start;
+    if (elapsed > budget.maxDurationMs) {
+      throw new Error(
+        `Agent orchestration budget exceeded: elapsed time ${elapsed}ms exceeded limit of ${budget.maxDurationMs}ms before ${passId}.`
+      );
+    }
+  };
+
+  const ensureToolUsageWithinLimit = (passId: OrchestrationPassId) => {
+    if (totalToolInvocations > budget.maxToolInvocations) {
+      throw new Error(
+        `Agent orchestration budget exceeded: tool invocations ${totalToolInvocations} exceeded limit of ${budget.maxToolInvocations} during ${passId}.`
+      );
+    }
+  };
+
+  const beforePass = (passId: OrchestrationPassId): number => {
+    if (executedPasses >= budget.maxPasses) {
+      throw new Error(
+        `Agent orchestration budget exceeded: pass limit of ${budget.maxPasses} reached before ${passId}.`
+      );
+    }
+
+    const timestamp = now().getTime();
+    ensureDurationWithinLimit(timestamp, passId);
+    ensureToolUsageWithinLimit(passId);
+    return timestamp;
+  };
+
+  const afterPass = (passId: OrchestrationPassId, completedAt: number, passToolInvocations: number) => {
+    executedPasses += 1;
+    totalToolInvocations += passToolInvocations;
+
+    if (executedPasses > budget.maxPasses) {
+      throw new Error(
+        `Agent orchestration budget exceeded: pass limit of ${budget.maxPasses} was exceeded during ${passId}.`
+      );
+    }
+
+    ensureToolUsageWithinLimit(passId);
+    ensureDurationWithinLimit(completedAt, passId);
+  };
+
+  return { beforePass, afterPass };
+};
+
 export const runAgentOrchestrationSlice = async (
   options: OrchestrationOptions
 ): Promise<OrchestrationResult> => {
@@ -52,6 +108,7 @@ export const runAgentOrchestrationSlice = async (
   const now = options.now ?? (() => new Date());
   const start = now().getTime();
   const budget = createBudget(start, options.budget);
+  const budgetGuard = createBudgetGuard(budget, start, now);
 
   if (budget.maxPasses < 3) {
     throw new Error('Agent orchestration slice requires at least three passes.');
@@ -68,11 +125,12 @@ export const runAgentOrchestrationSlice = async (
     runner: () => TResult | Promise<TResult>,
     notesFactory?: (result: TResult) => readonly string[]
   ): Promise<PassSummary<TResult>> => {
+    const started = budgetGuard.beforePass(id);
     toolset.resetUsageLog();
-    const started = now().getTime();
     const result = await Promise.resolve(runner());
     const completed = now().getTime();
     const usage = mapUsageLog(toolset.getUsageLog());
+    budgetGuard.afterPass(id, completed, usage.length);
     const notes = notesFactory ? [...notesFactory(result)] : [];
     const status = id === 'pass-3-validation' && (result as DocumentValidationResult).status === 'fail' ? 'failure' : 'success';
     return {

@@ -51,4 +51,44 @@ describe('runAgentOrchestrationSlice', () => {
       })
     ).rejects.toThrow(/requires at least three passes/i);
   });
+
+  it('halts when tool invocation budget is exceeded', async () => {
+    const toolset = createProductSimpleToolset();
+    const document = createProductSimpleDocument();
+    const ruleRepository = createInMemoryRuleRepository([createProductSimpleRuleSet()]);
+
+    await expect(
+      runAgentOrchestrationSlice({
+        document,
+        toolset,
+        ruleRepository,
+        budget: { maxToolInvocations: 1 }
+      })
+    ).rejects.toThrow(/tool invocations/i);
+  });
+
+  it('halts when duration budget is exceeded', async () => {
+    const timestamps = [
+      new Date('2024-01-01T00:00:00.000Z'),
+      new Date('2024-01-01T00:00:00.050Z'),
+      new Date('2024-01-01T00:00:00.200Z'),
+      new Date('2024-01-01T00:00:00.300Z'),
+      new Date('2024-01-01T00:00:00.400Z')
+    ];
+    let index = 0;
+
+    const toolset = createProductSimpleToolset();
+    const document = createProductSimpleDocument();
+    const ruleRepository = createInMemoryRuleRepository([createProductSimpleRuleSet()]);
+
+    await expect(
+      runAgentOrchestrationSlice({
+        document,
+        toolset,
+        ruleRepository,
+        now: () => timestamps[Math.min(index++, timestamps.length - 1)],
+        budget: { maxDurationMs: 100 }
+      })
+    ).rejects.toThrow(/elapsed time/i);
+  });
 });
