@@ -36,36 +36,29 @@ describe('buildRecipeFromRuleSet', () => {
     const { recipe } = buildRecipeFromRuleSet({ ruleSet, now });
     const toolset = createFixtureToolset();
     const fixture = loadProductSimpleFixture();
-    const fieldLookup = new Map<RecipeFieldId, FieldRecipe>();
-    recipe.target.fields.forEach((field) => {
-      fieldLookup.set(field.fieldId, field);
-    });
+    const getField = (fieldId: RecipeFieldId): FieldRecipe => {
+      const match = recipe.target.fields.find(
+        (candidate): candidate is FieldRecipe => candidate.fieldId === fieldId
+      );
+      if (!match) {
+        throw new Error(`${fieldId} field missing from recipe`);
+      }
+      return match;
+    };
 
-    const titleField = fieldLookup.get('title');
-    expect(titleField).toBeDefined();
-    if (!titleField) {
-      throw new Error('Title field missing from recipe');
-    }
+    const titleField = getField('title');
     const titleQuery = await toolset.html.query({ selector: titleField.selectorSteps[0].value });
     const titleMatch = titleQuery.matches[0];
     expect(titleMatch).toBeDefined();
     expect(titleMatch?.text.trim()).toBe(fixture.expected.product.title);
 
-    const priceField = fieldLookup.get('price');
-    expect(priceField).toBeDefined();
-    if (!priceField) {
-      throw new Error('Price field missing from recipe');
-    }
+    const priceField = getField('price');
     const priceQuery = await toolset.html.query({ selector: priceField.selectorSteps[0].value });
     const priceMatch = priceQuery.matches[0];
     expect(priceMatch).toBeDefined();
     expect(priceMatch?.text.replace(/\s+/g, ' ').trim()).toContain('149.00');
 
-    const imagesField = fieldLookup.get('images');
-    expect(imagesField).toBeDefined();
-    if (!imagesField) {
-      throw new Error('Images field missing from recipe');
-    }
+    const imagesField = getField('images');
     const imageQuery = await toolset.html.query({ selector: imagesField.selectorSteps[0].value, attribute: 'src' });
     const imageSources = imageQuery.matches.map((match) => {
       const value = match.attributeValue ?? match.attributes.src;
@@ -76,11 +69,7 @@ describe('buildRecipeFromRuleSet', () => {
     });
     expect(imageSources).toEqual(fixture.expected.product.images);
 
-    const breadcrumbField = fieldLookup.get('breadcrumbs');
-    expect(breadcrumbField).toBeDefined();
-    if (!breadcrumbField) {
-      throw new Error('Breadcrumb field missing from recipe');
-    }
+    const breadcrumbField = getField('breadcrumbs');
     const breadcrumbQuery = await toolset.html.query({ selector: breadcrumbField.selectorSteps[0].value });
     const breadcrumbLabels = breadcrumbQuery.matches.map((match) => match.text.replace(/\s+/g, ' ').trim());
     expect(breadcrumbLabels[breadcrumbLabels.length - 1]).toBe('Precision Pour-Over Kettle');
