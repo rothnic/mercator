@@ -57,3 +57,11 @@ Additional apps (e.g., `reviewer-ui`) and packages (`core`, `sdk`, `agent-tools`
 - Update task status directly in the task tables when starting or finishing work.
 - Record new architectural choices as ADRs in `docs/decisions/`.
 - Keep documentation synchronized with implemented behavior to minimize churn.
+- Do not mark a task complete until `pnpm lint` and `pnpm test` succeed locally. Track `pnpm typecheck` progress in the backlog and run it once the outstanding TypeScript debt is resolved.
+
+## Current State & Limitations
+
+The repository currently exercises the workflow against the synthetic `product-simple` fixture only. Dynamic URL ingestion,
+rule discovery, and cost-aware budgeting are still open items tracked in the task backlog. CLI and HTTP entrypoints are wired
+to the fixture toolchain, so they require local HTML paths generated from the fixtures. Follow-up work to add live document
+fetching, persisted rule repositories, and stronger budget enforcement is outlined in `docs/tasks/iteration-01-mvp.md`.
