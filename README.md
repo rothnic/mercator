@@ -61,7 +61,8 @@ Additional apps (e.g., `reviewer-ui`) and packages (`core`, `sdk`, `agent-tools`
 
 ## Current State & Limitations
 
-The repository currently exercises the workflow against the synthetic `product-simple` fixture only. Dynamic URL ingestion,
-rule discovery, and cost-aware budgeting are still open items tracked in the task backlog. CLI and HTTP entrypoints are wired
-to the fixture toolchain, so they require local HTML paths generated from the fixtures. Follow-up work to add live document
-fetching, persisted rule repositories, and stronger budget enforcement is outlined in `docs/tasks/iteration-01-mvp.md`.
+The workflow can fetch live HTML for rule-backed domains (e.g., the demo `product-simple` catalogue), run the orchestration
+passes, and promote the resulting recipe so `/parse` and the CLI reuse those rules without re-invoking agents. Rule discovery,
+automatic recipe targeting, and cost-aware budgeting remain open items tracked in the task backlog. CLI and HTTP entrypoints
+accept either fixture inputs or URLs; requests that lack a stable recipe will fail until a generation/promotion cycle runs for
+that document.
