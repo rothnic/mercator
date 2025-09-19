@@ -61,7 +61,7 @@ Additional apps (e.g., `reviewer-ui`) and packages (`core`, `sdk`, `agent-tools`
 
 ## Current State & Limitations
 
-Mercator now runs a four-stage Mastra team workflow (all agents default to OpenAI's `gpt5-mini`) that aligns with the AgentNetwork guidance:
+Mercator now runs a four-stage Mastra team workflow (all agents default to OpenAI's `gpt-5-mini`) that aligns with the AgentNetwork guidance:
 
 1. **ingestionAgent** – Invokes Firecrawl to capture HTML, markdown, and screenshots for the requested URL, registers a document workspace, and surfaces existing recipes targeting the same domain/path.
 2. **targetModelerAgent** – Reads the screenshot and markdown transcript to build or merge the Product target draft so downstream agents know the intended schema values.
