@@ -84,27 +84,103 @@ const markdownSearchOutputSchema = z.object({
   matches: z.array(markdownSearchMatchSchema)
 });
 
-const inputSchema = z.discriminatedUnion('action', [
-  z.object({
-    action: z.literal('overview'),
-    workspaceId: z.string()
-  }),
-  z.object({
-    action: z.literal('htmlQuery'),
+interface DocumentInsightInputCandidate {
+  action: 'overview' | 'htmlQuery' | 'markdownSearch';
+  workspaceId: string;
+  selector?: string;
+  attribute?: string;
+  limit?: number;
+  chunkId?: string;
+  query?: string;
+  caseSensitive?: boolean;
+  maxSnippets?: number;
+}
+
+const disallowKeys = (
+  value: DocumentInsightInputCandidate,
+  ctx: z.RefinementCtx,
+  keys: (keyof DocumentInsightInputCandidate)[],
+  action: DocumentInsightInputCandidate['action']
+) => {
+  for (const key of keys) {
+    if (value[key] !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `Remove this field when action is "${action}".`
+      });
+    }
+  }
+};
+
+const inputSchema = z
+  .object({
+    action: z.enum(['overview', 'htmlQuery', 'markdownSearch']),
     workspaceId: z.string(),
-    selector: z.string().min(1, 'Provide a CSS selector to inspect.'),
+    selector: z.string().optional(),
     attribute: z.string().optional(),
     limit: z.number().int().positive().max(25).optional(),
-    chunkId: z.string().optional()
-  }),
-  z.object({
-    action: z.literal('markdownSearch'),
-    workspaceId: z.string(),
-    query: z.string().min(1, 'Provide a search phrase to locate within the markdown transcript.'),
+    chunkId: z.string().optional(),
+    query: z.string().optional(),
     caseSensitive: z.boolean().optional(),
     maxSnippets: z.number().int().positive().max(10).optional()
   })
-]);
+  .strict()
+  .superRefine((value, ctx) => {
+    switch (value.action) {
+      case 'overview': {
+        disallowKeys(
+          value,
+          ctx,
+          ['selector', 'attribute', 'limit', 'chunkId', 'query', 'caseSensitive', 'maxSnippets'],
+          'overview'
+        );
+        break;
+      }
+      case 'htmlQuery': {
+        if (!value.selector || value.selector.trim().length === 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['selector'],
+            message: 'Provide a CSS selector to inspect.'
+          });
+        }
+        disallowKeys(value, ctx, ['query', 'caseSensitive', 'maxSnippets'], 'htmlQuery');
+        break;
+      }
+      case 'markdownSearch': {
+        if (!value.query || value.query.trim().length === 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['query'],
+            message: 'Provide a search phrase to locate within the markdown transcript.'
+          });
+        }
+        disallowKeys(value, ctx, ['selector', 'attribute', 'limit', 'chunkId'], 'markdownSearch');
+        break;
+      }
+    }
+  });
+
+type DocumentInsightInput = DocumentInsightInputCandidate;
+
+type DocumentInsightOverviewContext = Extract<DocumentInsightInput, { action: 'overview' }>;
+type DocumentInsightHtmlQueryContext = Extract<DocumentInsightInput, { action: 'htmlQuery' }>;
+type DocumentInsightMarkdownSearchContext = Extract<DocumentInsightInput, { action: 'markdownSearch' }>;
+
+const isOverviewContext = (
+  context: DocumentInsightInput
+): context is DocumentInsightOverviewContext => context.action === 'overview';
+
+const isHtmlQueryContext = (
+  context: DocumentInsightInput
+): context is DocumentInsightHtmlQueryContext =>
+  context.action === 'htmlQuery' && typeof context.selector === 'string';
+
+const isMarkdownSearchContext = (
+  context: DocumentInsightInput
+): context is DocumentInsightMarkdownSearchContext =>
+  context.action === 'markdownSearch' && typeof context.query === 'string';
 
 const outputSchema = z.discriminatedUnion('action', [overviewOutputSchema, htmlQueryOutputSchema, markdownSearchOutputSchema]);
 
@@ -113,79 +189,85 @@ export const documentInsightTool = createTool({
   description: 'Inspect the current document workspace, run HTML selector probes, or search the markdown transcript.',
   inputSchema,
   outputSchema,
-  async execute({ context }) {
-    switch (context.action) {
-      case 'overview': {
-        const snapshot = getWorkspaceSnapshot(context.workspaceId);
-        return {
-          action: 'overview',
-          workspace: {
-            id: snapshot.id,
-            url: snapshot.url,
-            domain: snapshot.domain,
-            path: snapshot.path,
-            createdAt: snapshot.createdAt,
-            updatedAt: snapshot.updatedAt,
-            htmlLength: snapshot.htmlLength,
-            markdownLength: snapshot.markdownLength,
-            ruleCount: snapshot.ruleCount,
-            targetDraft: snapshot.targetDraft,
-            lastEvaluation: snapshot.lastEvaluation
-          }
-        } satisfies z.infer<typeof overviewOutputSchema>;
-      }
-      case 'htmlQuery': {
-        const result = await queryHtml(context.workspaceId, {
-          selector: context.selector,
-          attribute: context.attribute,
-          limit: context.limit,
-          chunkId: context.chunkId
-        });
-        return {
-          action: 'htmlQuery',
-          workspaceId: context.workspaceId,
-          selector: context.selector,
-          attribute: context.attribute,
-          totalMatches: result.totalMatches,
-          matches: result.matches.map((match) => ({
-            html: match.html,
-            text: match.text,
-            attributes: { ...match.attributes },
-            attributeValue: match.attributeValue,
-            path: match.path
-          })),
-          chunk: result.chunk
-            ? {
-                id: result.chunk.id,
-                selector: result.chunk.selector,
-                label: result.chunk.label,
-                description: result.chunk.description,
-                snippet: result.chunk.snippet,
-                nodeCount: result.chunk.nodeCount
-              }
-            : undefined
-        } satisfies z.infer<typeof htmlQueryOutputSchema>;
-      }
-      case 'markdownSearch': {
-        const result = await searchMarkdown(context.workspaceId, {
-          query: context.query,
-          caseSensitive: context.caseSensitive,
-          maxSnippets: context.maxSnippets
-        });
-        return {
-          action: 'markdownSearch',
-          workspaceId: context.workspaceId,
-          query: context.query,
-          totalMatches: result.totalMatches,
-          matches: result.matches.map((match) => ({
-            heading: match.heading,
-            excerpt: match.excerpt,
-            lineRange: [match.lineRange[0], match.lineRange[1]] as [number, number]
-          }))
-        } satisfies z.infer<typeof markdownSearchOutputSchema>;
-      }
-      default:
-        throw new Error(`Unsupported action ${(context as { action: string }).action}`);
+  async execute({ context }: { context: DocumentInsightInput }) {
+    if (typeof context.workspaceId !== 'string' || context.workspaceId.trim().length === 0) {
+      throw new Error('workspaceId must be a non-empty string.');
     }
+
+    const workspaceId = context.workspaceId;
+
+    if (isOverviewContext(context)) {
+      const snapshot = getWorkspaceSnapshot(workspaceId);
+      return {
+        action: 'overview',
+        workspace: {
+          id: snapshot.id,
+          url: snapshot.url,
+          domain: snapshot.domain,
+          path: snapshot.path,
+          createdAt: snapshot.createdAt,
+          updatedAt: snapshot.updatedAt,
+          htmlLength: snapshot.htmlLength,
+          markdownLength: snapshot.markdownLength,
+          ruleCount: snapshot.ruleCount,
+          targetDraft: snapshot.targetDraft,
+          lastEvaluation: snapshot.lastEvaluation
+        }
+      } satisfies z.infer<typeof overviewOutputSchema>;
+    }
+
+    if (isHtmlQueryContext(context)) {
+      const result = await queryHtml(workspaceId, {
+        selector: context.selector,
+        attribute: context.attribute,
+        limit: context.limit,
+        chunkId: context.chunkId
+      });
+      return {
+        action: 'htmlQuery',
+        workspaceId: context.workspaceId,
+        selector: context.selector,
+        attribute: context.attribute,
+        totalMatches: result.totalMatches,
+        matches: result.matches.map((match) => ({
+          html: match.html,
+          text: match.text,
+          attributes: { ...match.attributes },
+          attributeValue: match.attributeValue,
+          path: match.path
+        })),
+        chunk: result.chunk
+          ? {
+              id: result.chunk.id,
+              selector: result.chunk.selector,
+              label: result.chunk.label,
+              description: result.chunk.description,
+              snippet: result.chunk.snippet,
+              nodeCount: result.chunk.nodeCount
+            }
+          : undefined
+      } satisfies z.infer<typeof htmlQueryOutputSchema>;
+    }
+
+    if (isMarkdownSearchContext(context)) {
+      const result = await searchMarkdown(workspaceId, {
+        query: context.query,
+        caseSensitive: context.caseSensitive,
+        maxSnippets: context.maxSnippets
+      });
+      return {
+        action: 'markdownSearch',
+        workspaceId: context.workspaceId,
+        query: context.query,
+        totalMatches: result.totalMatches,
+        matches: result.matches.map((match) => ({
+          heading: match.heading,
+          excerpt: match.excerpt,
+          lineRange: [match.lineRange[0], match.lineRange[1]] as [number, number]
+        }))
+      } satisfies z.infer<typeof markdownSearchOutputSchema>;
+    }
+
+    throw new Error(`Unsupported action ${(context as { action: string }).action}`);
   }
 });

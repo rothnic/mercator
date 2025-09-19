@@ -11,30 +11,108 @@ import {
   type RuleEvaluationResult
 } from '../workspaces/document-workspace';
 
-const listSchema = z.object({
-  action: z.literal('list'),
-  workspaceId: z.string()
-});
-
-const setSchema = z.object({
-  action: z.literal('set'),
-  workspaceId: z.string(),
-  rule: FieldRuleSchema
-});
-
-const removeSchema = z.object({
-  action: z.literal('remove'),
-  workspaceId: z.string(),
-  fieldId: RecipeFieldIdSchema
-});
-
-const evaluateSchema = z.object({
-  action: z.literal('evaluate'),
-  workspaceId: z.string(),
-  focus: z.array(RecipeFieldIdSchema).optional()
-});
-
-const inputSchema = z.discriminatedUnion('action', [listSchema, setSchema, removeSchema, evaluateSchema]);
+const inputSchema = z
+  .object({
+    action: z.enum(['list', 'set', 'remove', 'evaluate']),
+    workspaceId: z.string(),
+    rule: FieldRuleSchema.optional(),
+    fieldId: RecipeFieldIdSchema.optional(),
+    focus: z.array(RecipeFieldIdSchema).optional()
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    switch (value.action) {
+      case 'list': {
+        if (value.rule !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['rule'],
+            message: 'Remove the rule field when listing selectors.'
+          });
+        }
+        if (value.fieldId !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fieldId'],
+            message: 'Remove the fieldId when listing selectors.'
+          });
+        }
+        if (value.focus !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['focus'],
+            message: 'Remove the focus filter when listing selectors.'
+          });
+        }
+        break;
+      }
+      case 'set': {
+        if (value.rule === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['rule'],
+            message: 'Provide a rule definition when action is "set".'
+          });
+        }
+        if (value.fieldId !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fieldId'],
+            message: 'Remove the fieldId when updating rules.'
+          });
+        }
+        if (value.focus !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['focus'],
+            message: 'Remove the focus filter when updating rules.'
+          });
+        }
+        break;
+      }
+      case 'remove': {
+        if (value.fieldId === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fieldId'],
+            message: 'Provide a fieldId to remove the matching rule.'
+          });
+        }
+        if (value.rule !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['rule'],
+            message: 'Remove the rule payload when deleting a selector.'
+          });
+        }
+        if (value.focus !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['focus'],
+            message: 'Remove the focus filter when deleting a selector.'
+          });
+        }
+        break;
+      }
+      case 'evaluate': {
+        if (value.rule !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['rule'],
+            message: 'Remove the rule payload when evaluating selectors.'
+          });
+        }
+        if (value.fieldId !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fieldId'],
+            message: 'Remove the fieldId when evaluating selectors.'
+          });
+        }
+        break;
+      }
+    }
+  });
 
 const ruleEvaluationSchema: z.ZodType<RuleEvaluationResult> = z.object({
   fieldId: RecipeFieldIdSchema,
@@ -107,7 +185,8 @@ export const ruleLabTool = createTool({
         } satisfies z.infer<typeof setOutputSchema>;
       }
       case 'remove': {
-        const rules = removeRule(context.workspaceId, context.fieldId);
+        const fieldId = RecipeFieldIdSchema.parse(context.fieldId);
+        const rules = removeRule(context.workspaceId, fieldId);
         return {
           action: 'remove',
           workspaceId: context.workspaceId,

@@ -10,29 +10,66 @@ import {
   replaceTargetDraft
 } from '../workspaces/document-workspace';
 
-const replaceSchema = z.object({
-  action: z.literal('replace'),
-  workspaceId: z.string(),
-  target: ProductSchema
-});
-
-const mergeSchema = z.object({
-  action: z.literal('merge'),
-  workspaceId: z.string(),
-  target: ProductDraftSchema
-});
-
-const clearSchema = z.object({
-  action: z.literal('clear'),
-  workspaceId: z.string()
-});
-
-const getSchema = z.object({
-  action: z.literal('get'),
-  workspaceId: z.string()
-});
-
-const inputSchema = z.discriminatedUnion('action', [replaceSchema, mergeSchema, clearSchema, getSchema]);
+const inputSchema = z
+  .object({
+    action: z.enum(['replace', 'merge', 'clear', 'get']),
+    workspaceId: z.string(),
+    target: z.unknown().optional()
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    switch (value.action) {
+      case 'replace': {
+        if (value.target === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['target'],
+            message: 'Provide a full Product object when replacing the target draft.'
+          });
+          return;
+        }
+        const parsed = ProductSchema.safeParse(value.target);
+        if (!parsed.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['target'],
+            message: 'The provided target does not match the Product schema.'
+          });
+        }
+        break;
+      }
+      case 'merge': {
+        if (value.target === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['target'],
+            message: 'Provide a partial Product draft when merging into the target draft.'
+          });
+          return;
+        }
+        const parsed = ProductDraftSchema.safeParse(value.target);
+        if (!parsed.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['target'],
+            message: 'The provided target does not match the Product draft schema.'
+          });
+        }
+        break;
+      }
+      case 'clear':
+      case 'get': {
+        if (value.target !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['target'],
+            message: `Remove the target field when action is "${value.action}".`
+          });
+        }
+        break;
+      }
+    }
+  });
 
 const outputSchema = z.object({
   workspaceId: z.string(),
@@ -49,7 +86,8 @@ export const targetDraftTool = createTool({
   execute({ context }) {
     switch (context.action) {
       case 'replace': {
-        const snapshot = replaceTargetDraft(context.workspaceId, context.target);
+        const product = ProductSchema.parse(context.target);
+        const snapshot = replaceTargetDraft(context.workspaceId, product);
         return Promise.resolve({
           workspaceId: snapshot.id,
           action: 'replace',
@@ -58,7 +96,8 @@ export const targetDraftTool = createTool({
         } satisfies z.infer<typeof outputSchema>);
       }
       case 'merge': {
-        const snapshot = mergeTargetDraft(context.workspaceId, context.target);
+        const draftPatch = ProductDraftSchema.parse(context.target);
+        const snapshot = mergeTargetDraft(context.workspaceId, draftPatch);
         return Promise.resolve({
           workspaceId: snapshot.id,
           action: 'merge',
