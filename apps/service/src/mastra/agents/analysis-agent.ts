@@ -8,7 +8,7 @@ const analysisMemory: Memory = new Memory({
   options: {
     workingMemory: { enabled: true },
     lastMessages: 20,
-    semanticRecall: { topK: 8, messageRange: 8 }
+    semanticRecall: false
   }
 });
 

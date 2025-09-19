@@ -15,7 +15,7 @@ const researchMemory: Memory = new Memory({
   options: {
     workingMemory: { enabled: true },
     lastMessages: 20,
-    semanticRecall: { topK: 5, messageRange: 5 }
+    semanticRecall: false
   }
 });
 

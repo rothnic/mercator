@@ -61,9 +61,12 @@ export class LocalFileSystemRecipeStore implements RecipeStore {
   private readonly ready: Promise<void>;
 
   constructor(options: LocalFileSystemRecipeStoreOptions) {
-    this.directory = options.directory;
+    const directory = options.directory;
+    this.directory = directory;
     this.now = options.now ?? (() => new Date());
-    this.ready = mkdir(this.directory, { recursive: true });
+    this.ready = (async () => {
+      await mkdir(directory, { recursive: true });
+    })();
   }
 
   async createDraft(recipe: Recipe, options: CreateDraftOptions = {}): Promise<StoredRecipe> {
@@ -186,20 +189,25 @@ export class LocalFileSystemRecipeStore implements RecipeStore {
       }
     });
 
-    const next: FileRecord = {
-      ...record,
+    const nextRecord: FileRecord = {
+      id: record.id,
       recipe: updatedRecipe,
+      createdAt: record.createdAt.toISOString(),
       updatedAt: now.toISOString(),
-      promotedAt: now.toISOString()
+      promotedAt: now.toISOString(),
+      document: record.document ? { ...record.document } : undefined
     };
 
-    await this.writeRecord(next);
-    return this.hydrate(next);
+    await this.writeRecord(nextRecord);
+    return this.hydrate(nextRecord);
   }
 
   async getLatestStable(): Promise<StoredRecipe | undefined> {
     const entries = await this.list({ state: 'stable' });
-    return entries.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
+    const [latest] = [...entries].sort(
+      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+    );
+    return latest;
   }
 
   private async readRecord(fileName: string): Promise<StoredRecipe | undefined> {

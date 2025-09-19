@@ -9,7 +9,7 @@ const orchestratorMemory: Memory = new Memory({
   options: {
     workingMemory: { enabled: true },
     lastMessages: 50,
-    semanticRecall: { topK: 10, messageRange: 10 }
+    semanticRecall: false
   }
 });
 

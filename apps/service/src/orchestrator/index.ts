@@ -205,6 +205,12 @@ export const runAgentOrchestrationSlice = async (
 
   const completedAt = now().getTime();
 
+  const passes: OrchestrationResult['passes'] = [
+    expectedSummary,
+    synthesisSummary,
+    validationSummary
+  ];
+
   return {
     startedAt: start,
     completedAt,
@@ -212,11 +218,7 @@ export const runAgentOrchestrationSlice = async (
     expected: expectedSummary.result,
     synthesis: synthesisSummary.result,
     validation: validationSummary.result,
-    passes: [
-      expectedSummary as PassSummary<ExpectedDataSummary>,
-      synthesisSummary as PassSummary<RecipeSynthesisSummary>,
-      validationSummary as PassSummary<DocumentValidationResult>
-    ]
+    passes
   };
 };
 
