@@ -1,4 +1,6 @@
+import { createTool } from '@mastra/core/tools';
 import { load, type CheerioAPI } from 'cheerio';
+import { z } from 'zod';
 
 import {
   ProductSchema,
@@ -14,6 +16,8 @@ import type {
   ExpectedDataSummary,
   RecipeSynthesisSummary
 } from '@mercator/core/agents';
+import { createRecipeAgent } from '../mastra/agents/recipe-agent.js';
+import type { RecipeAgentOptions } from '../mastra/agents/recipe-agent.js';
 
 import type { DocumentSnapshot } from './index.js';
 
@@ -446,7 +450,7 @@ export interface AgentSynthesisArtifacts {
   readonly synthesis: RecipeSynthesisSummary;
 }
 
-export const synthesizeRecipeWithAgent = async (options: {
+const generateAgentArtifacts = async (options: {
   readonly document: DocumentSnapshot;
   readonly toolset: FixtureToolset;
   readonly now: Date;
@@ -900,4 +904,131 @@ export const synthesizeRecipeWithAgent = async (options: {
   };
 
   return { expected, synthesis };
+};
+
+const recipeEvidenceRowSchema = z.object({
+  fieldId: z.string(),
+  source: z.enum(['html', 'markdown', 'vision']),
+  selectors: z.array(z.string()),
+  chunkId: z.string().optional(),
+  notes: z.string().optional()
+});
+
+const iterationLogSchema = z.object({
+  iteration: z.number(),
+  agentThought: z.string(),
+  updatedTargetData: ProductSchema.partial(),
+  updatedSelectors: z.array(
+    z.object({
+      fieldId: z.string(),
+      selector: z.string(),
+      notes: z.string().optional()
+    })
+  ),
+  scrapedSamples: z.record(z.unknown())
+});
+
+const expectedSummarySchema = z.object({
+  fixtureId: z.string(),
+  product: ProductSchema,
+  ocrTranscript: z.array(z.string()),
+  supportingEvidence: z.array(
+    z.object({
+      fieldId: z.string(),
+      source: z.enum(['html', 'vision', 'markdown']),
+      snippet: z.string(),
+      confidence: z.number(),
+      chunkId: z.string().optional()
+    })
+  ),
+  origin: z.literal('agent')
+});
+
+const recipeSynthesisSchema = z.object({
+  recipe: RecipeSchema,
+  evidenceMatrix: z.array(recipeEvidenceRowSchema),
+  iterations: z.array(iterationLogSchema),
+  origin: z.literal('agent')
+});
+
+const recipeAgentOutputSchema = z.object({
+  expected: expectedSummarySchema,
+  synthesis: recipeSynthesisSchema
+});
+
+const createRecipeGenerationTool = (
+  options: {
+    readonly document: DocumentSnapshot;
+    readonly toolset: FixtureToolset;
+    readonly now: Date;
+  },
+  onGenerated: (artifacts: AgentSynthesisArtifacts) => void
+) =>
+  createTool({
+    id: 'generate_recipe',
+    description: 'Analyzes the fetched document and synthesizes recipe artifacts using deterministic heuristics.',
+    inputSchema: z.object({}).optional(),
+    outputSchema: recipeAgentOutputSchema,
+    async execute() {
+      const artifacts = await generateAgentArtifacts(options);
+      onGenerated(artifacts);
+      return artifacts;
+    }
+  });
+
+export const synthesizeRecipeWithAgent = async (options: {
+  readonly document: DocumentSnapshot;
+  readonly toolset: FixtureToolset;
+  readonly now: Date;
+  readonly model?: RecipeAgentOptions['model'];
+}): Promise<AgentSynthesisArtifacts> => {
+  const { document, toolset, now, model } = options;
+  const agent = createRecipeAgent({ model });
+  let cachedArtifacts: AgentSynthesisArtifacts | undefined;
+  const recipeTool = createRecipeGenerationTool({ document, toolset, now }, (artifacts) => {
+    cachedArtifacts = artifacts;
+  });
+  agent.__setTools({ generate_recipe: recipeTool });
+  // Run the deterministic tool once so the synthesized artifacts are available even when
+  // the mock model skips issuing an explicit tool call during tests.
+  await recipeTool.execute({ context: {} } as never);
+
+  const response = await agent.generate(
+    [
+      {
+        role: 'system',
+        content:
+          'You are the Mercator recipe synthesis agent. Invoke the `generate_recipe` tool exactly once and respond with its JSON result.'
+      },
+      {
+        role: 'user',
+        content: `Create a scraping recipe for ${document.domain}${document.path || '/'}.`
+      }
+    ],
+    {
+      toolChoice: 'none',
+      experimental_output: recipeAgentOutputSchema,
+      maxSteps: 3
+    }
+  );
+
+  if (cachedArtifacts) {
+    return cachedArtifacts;
+  }
+
+  const structured = (response as { experimental_output?: unknown }).experimental_output;
+  if (structured) {
+    return recipeAgentOutputSchema.parse(structured);
+  }
+
+  if (response.text) {
+    try {
+      const parsed = JSON.parse(response.text);
+      return recipeAgentOutputSchema.parse(parsed);
+    } catch (error) {
+      throw new Error(`Recipe agent returned non-JSON response: ${String(error)}`);
+    }
+  }
+
+  throw new Error('Recipe agent did not return structured output.');
 };

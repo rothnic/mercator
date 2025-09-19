@@ -3,6 +3,7 @@ import { PinoLogger } from '@mastra/loggers';
 import { analysisAgent } from './agents/analysis-agent';
 import { orchestratorAgent } from './agents/orchestrator-agent';
 import { researchAgent } from './agents/research-agent';
+import { createRecipeAgent } from './agents/recipe-agent';
 import { orchestrationWorkflow } from './workflows/orchestration-workflow';
 import { storage } from './stores';
 
@@ -11,6 +12,7 @@ type MercatorMastraInstance = Mastra<
     orchestratorAgent: typeof orchestratorAgent;
     researchAgent: typeof researchAgent;
     analysisAgent: typeof analysisAgent;
+    recipeAgent: ReturnType<typeof createRecipeAgent>;
   },
   Record<string, never>,
   {
@@ -22,7 +24,8 @@ const mastraConfig = {
   agents: {
     orchestratorAgent,
     researchAgent,
-    analysisAgent
+    analysisAgent,
+    recipeAgent: createRecipeAgent()
   },
   workflows: {
     orchestrationWorkflow

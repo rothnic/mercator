@@ -63,7 +63,7 @@ Additional apps (e.g., `reviewer-ui`) and packages (`core`, `sdk`, `agent-tools`
 
 Mercator now runs a three-pass workflow that can generate recipes for previously unseen product URLs:
 
-1. The agent seeds target data with OCR, inspects live HTML, and iteratively refines selectors until the scraped output matches the evolving target data. Selector synthesis relies on heuristics that search for attribute hints and text tokens—no hard-coded fixture selectors remain. Iteration logs and tool usage are captured in the orchestration response.
+1. The Mastra-backed recipe agent calls a deterministic `generate_recipe` tool that seeds target data from OCR, inspects live HTML via the shared tools, and iteratively refines selectors until the scraped output matches the evolving target data. Selector synthesis relies on heuristics that search for attribute hints and text tokens—no hard-coded fixture selectors remain. Iteration logs and tool usage are captured in the orchestration response.
 2. Newly generated recipes are stored as drafts together with their domain/path metadata. Once promoted, subsequent `/parse` or CLI execution requests reuse the stored recipe without invoking the agent.
 3. If no stable recipe exists for the requested domain/path, `/parse` returns a clear error so the caller can trigger the agent workflow first.
 

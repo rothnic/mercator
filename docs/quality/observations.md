@@ -35,6 +35,6 @@ To support the fully automated workflow (agent receives a URL, refines rules, an
 
 1. **Review experience** – The service captures iteration logs but there is no UI yet for canceling runs, batching additional iterations, or feeding developer guidance between passes. That experience is planned alongside reviewer tooling in Iteration I02.
 2. **Rule reuse across restarts** – Generated recipes persist targeting metadata, but the in-memory rule repository still seeds itself from fixtures at startup. Loading stored recipes into the repository would let future generations reuse existing selectors without another agent synthesis loop.
-3. **General-purpose selector discovery** – The MVP agent now derives selectors heuristically using OCR keywords and attribute hints rather than hard-coded fixture selectors. Follow-up work should broaden those heuristics to handle pages without semantic attributes and ensure the workflow adapts to additional layouts.
+3. **General-purpose selector discovery** – The new Mastra `recipeAgent` routes generation through a deterministic `generate_recipe` tool that uses OCR keywords and attribute hints instead of fixture-specific selectors. Follow-up work should broaden those heuristics (or introduce a reasoning LLM) to handle pages without semantic attributes and ensure the workflow adapts to additional layouts.
 
 The new backlog tasks describe how to close these gaps so the next agent can focus on implementation instead of discovery.
