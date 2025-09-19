@@ -20,6 +20,29 @@ if (!Object.getOwnPropertyDescriptor(globalThis, 'mastra')) {
 
 const agentPrototype = Agent.prototype;
 
+async function resolveAgentModel(agentInstance, runtimeContext) {
+  if (typeof agentInstance.getModel === 'function') {
+    return runtimeContext !== undefined
+      ? agentInstance.getModel({ runtimeContext })
+      : agentInstance.getModel();
+  }
+
+  if (typeof agentInstance.model === 'function') {
+    return agentInstance.model({ runtimeContext });
+  }
+
+  return agentInstance.model;
+}
+
+function isV2Model(resolvedModel) {
+  return (
+    resolvedModel !== null &&
+    typeof resolvedModel === 'object' &&
+    'specificationVersion' in resolvedModel &&
+    resolvedModel.specificationVersion === 'v2'
+  );
+}
+
 if (
   !agentPrototype.__mercatorStreamPatched &&
   typeof agentPrototype.stream === 'function' &&
@@ -29,23 +52,12 @@ if (
 
   agentPrototype.stream = async function patchedStream(messages, options) {
     try {
-      const runtimeContext = options?.runtimeContext;
-      const resolvedModel =
-        typeof this.getModel === 'function'
-          ? runtimeContext !== undefined
-            ? await this.getModel({ runtimeContext })
-            : await this.getModel()
-          : typeof this.model === 'function'
-            ? await this.model({ runtimeContext })
-            : this.model;
+      const resolvedModel = await resolveAgentModel(
+        this,
+        options?.runtimeContext
+      );
 
-      if (
-        resolvedModel &&
-        typeof resolvedModel === 'object' &&
-        'specificationVersion' in resolvedModel &&
-        resolvedModel.specificationVersion === 'v2' &&
-        typeof this.streamVNext === 'function'
-      ) {
+      if (isV2Model(resolvedModel) && typeof this.streamVNext === 'function') {
         return this.streamVNext(messages, options);
       }
     } catch (error) {
@@ -57,6 +69,38 @@ if (
   };
 
   Object.defineProperty(agentPrototype, '__mercatorStreamPatched', {
+    configurable: false,
+    enumerable: false,
+    value: true,
+    writable: false
+  });
+}
+
+if (
+  !agentPrototype.__mercatorGeneratePatched &&
+  typeof agentPrototype.generate === 'function' &&
+  typeof agentPrototype.generateVNext === 'function'
+) {
+  const originalGenerate = agentPrototype.generate;
+
+  agentPrototype.generate = async function patchedGenerate(input, options) {
+    try {
+      const resolvedModel = await resolveAgentModel(
+        this,
+        options?.runtimeContext
+      );
+
+      if (isV2Model(resolvedModel) && typeof this.generateVNext === 'function') {
+        return this.generateVNext(input, options);
+      }
+    } catch (error) {
+      // Fall back to the original generate implementation if resolution fails.
+    }
+
+    return originalGenerate.call(this, input, options);
+  };
+
+  Object.defineProperty(agentPrototype, '__mercatorGeneratePatched', {
     configurable: false,
     enumerable: false,
     value: true,
