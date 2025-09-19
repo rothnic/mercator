@@ -15,6 +15,7 @@ import { collectExpectedData } from './expected-data.js';
 import { buildRecipeFromRuleSet } from './recipe-synthesis.js';
 import type { DocumentRuleRepository } from './rule-repository.js';
 import { validateRecipeAgainstDocument } from './validation.js';
+import { synthesizeRecipeWithAgent } from './dynamic-rule-generator.js';
 
 const mapUsageLog = (entries: readonly ToolUsageEntry[]): AgentToolInvocation[] => {
   return entries.map((entry) => ({
@@ -115,9 +116,18 @@ export const runAgentOrchestrationSlice = async (
   }
 
   const ruleSet = await ruleRepository.getRuleSet({ domain: document.domain, path: document.path });
-  if (!ruleSet) {
-    throw new Error(`No rule configuration available for ${document.domain}${document.path}`);
-  }
+  let generatedArtifacts: Awaited<ReturnType<typeof synthesizeRecipeWithAgent>> | undefined;
+
+  const ensureGeneratedArtifacts = async () => {
+    if (!generatedArtifacts) {
+      generatedArtifacts = await synthesizeRecipeWithAgent({
+        document,
+        toolset,
+        now: now()
+      });
+    }
+    return generatedArtifacts;
+  };
 
   const executePass = async <TResult>(
     id: PassSummary<TResult>['id'],
@@ -147,15 +157,37 @@ export const runAgentOrchestrationSlice = async (
 
   const expectedSummary = await executePass<ExpectedDataSummary>(
     'pass-1-expected-data',
-    'Collect stored expectations',
-    () => collectExpectedData({ ruleSet, toolset })
+    ruleSet ? 'Collect stored expectations' : 'Seed expected data via agent workflow',
+    async () => {
+      if (ruleSet) {
+        return collectExpectedData({ ruleSet, toolset });
+      }
+      const artifacts = await ensureGeneratedArtifacts();
+      return artifacts.expected;
+    },
+    (result) =>
+      result.origin === 'agent'
+        ? ['Initialized target data using iterative agent loop']
+        : []
   );
 
   const synthesisSummary = await executePass<RecipeSynthesisSummary>(
     'pass-2-recipe-synthesis',
     'Synthesize candidate recipe',
-    () => buildRecipeFromRuleSet({ ruleSet, now: now() }),
-    () => ['Sourced field selectors from configurable rules']
+    async () => {
+      if (ruleSet) {
+        return buildRecipeFromRuleSet({ ruleSet, now: now() });
+      }
+      const artifacts = await ensureGeneratedArtifacts();
+      return artifacts.synthesis;
+    },
+    (result) =>
+      result.origin === 'agent'
+        ? [
+            `Completed ${result.iterations.length} agent iterations`,
+            'Selectors refined directly against fetched document'
+          ]
+        : ['Sourced field selectors from configurable rules']
   );
 
   const validationSummary = await executePass<DocumentValidationResult>(

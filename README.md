@@ -61,8 +61,10 @@ Additional apps (e.g., `reviewer-ui`) and packages (`core`, `sdk`, `agent-tools`
 
 ## Current State & Limitations
 
-The workflow currently relies on the seeded `product-simple` rule set when generating recipes; arbitrary URLs without stored
-rules will error until Iteration I01 closes out tasks `I01-F4-T5`, `I01-F5-T3`, and `I01-F5-T4`. Those items teach the agent
-slice to analyze fetched HTML directly and persist the resulting recipe with domain metadata so `/parse` and the CLI can reuse
-it without rerunning orchestration. CLI and HTTP entrypoints already accept either fixture inputs or URLs; once the remaining
-tasks land, a generation/promotion cycle on any product page will unlock deterministic parsing for that URL.
+Mercator now runs a three-pass workflow that can generate recipes for previously unseen product URLs:
+
+1. The agent seeds target data with OCR, inspects live HTML, and iteratively refines selectors until the scraped output matches the evolving target data. Iteration logs and tool usage are captured in the orchestration response.
+2. Newly generated recipes are stored as drafts together with their domain/path metadata. Once promoted, subsequent `/parse` or CLI execution requests reuse the stored recipe without invoking the agent.
+3. If no stable recipe exists for the requested domain/path, `/parse` returns a clear error so the caller can trigger the agent workflow first.
+
+The MVP still focuses on deterministic fixture data for assertions, and the reviewer UI remains a future iteration. Budget enforcement guards the agent loop, but observability, canarying, and reviewer tooling continue to live in Iteration I02.

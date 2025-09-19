@@ -86,13 +86,15 @@ describe('LocalFileSystemRecipeStore', () => {
   it('persists draft recipes to disk with generated identifiers', async () => {
     const store = new LocalFileSystemRecipeStore({ directory, now: nextTime });
     const recipe = createBaseRecipe(timestamps[0]);
+    const document = { domain: 'demo.mercator.sh', path: '/products/test' } as const;
 
-    const stored = await store.createDraft(recipe);
+    const stored = await store.createDraft(recipe, { document });
 
     expect(stored.id).toMatch(/[0-9a-f-]{36}/i);
     expect(stored.recipe.id).toBe(stored.id);
     expect(stored.recipe.lifecycle.state).toBe('draft');
     expect(stored.updatedAt.toISOString()).toBe(timestamps[0].toISOString());
+    expect(stored.document).toEqual(document);
 
     const files = await readdir(directory);
     expect(files).toContain(`${stored.id}.json`);
@@ -101,8 +103,9 @@ describe('LocalFileSystemRecipeStore', () => {
   it('promotes draft recipes to stable and records lifecycle history', async () => {
     const store = new LocalFileSystemRecipeStore({ directory, now: nextTime });
     const recipe = createBaseRecipe(timestamps[0]);
+    const document = { domain: 'demo.mercator.sh', path: '/products/test' } as const;
 
-    const draft = await store.createDraft(recipe);
+    const draft = await store.createDraft(recipe, { document });
     const promoted = await store.promote(draft.id, { actor: 'qa@mercator' });
 
     expect(promoted.recipe.lifecycle.state).toBe('stable');
@@ -110,6 +113,7 @@ describe('LocalFileSystemRecipeStore', () => {
     expect(lastHistory?.state).toBe('stable');
     expect(lastHistory?.actor).toBe('qa@mercator');
     expect(promoted.promotedAt?.toISOString()).toBe(timestamps[1].toISOString());
+    expect(promoted.document).toEqual(document);
   });
 
   it('lists recipes filtered by lifecycle state and returns latest stable entry', async () => {

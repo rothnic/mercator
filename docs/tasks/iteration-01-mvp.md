@@ -44,7 +44,7 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 | 2 | I01-F4-T2 | Implement selector recipe synthesis for fixture (map expected fields to CSS selectors, apply transforms/tolerances). | Module producing recipe object, tests verifying selectors match fixture DOM. | I01-F4-T1 | Done | refactor: drive orchestrator from rule repository (b68add2). |
 | 3 | I01-F4-T3 | Implement validator pass computing per-field/document confidence using tolerance helpers and Zod. | Validation module + tests verifying success/failure cases for fixture variations. | I01-F4-T2, I01-F2-T3 | Done | refactor: drive orchestrator from rule repository (b68add2). |
 | 4 | I01-F4-T4 | Enforce orchestration budget and token spend limits before each pass. | Budget tracker that halts passes when limits are exceeded, unit tests covering stop conditions. | I01-F4-T3 | Done | Added budget guard that stops passes once pass, tool invocation, or duration limits are exceeded. |
-| 5 | I01-F4-T5 | Enable orchestration to derive selectors when no rule set exists by analyzing fetched HTML. | Update the orchestration passes so an empty rule repository still produces a candidate recipe and expected data for required product fields; add fixture-driven tests for the fallback path. | I01-F4-T3 | Todo | Adds heuristics/agent prompts so arbitrary URLs can complete Pass 1–3 without pre-configured rules. |
+| 5 | I01-F4-T5 | Enable orchestration to derive selectors when no rule set exists by analyzing fetched HTML. | Update the orchestration passes so an empty rule repository still produces a candidate recipe and expected data for required product fields; add fixture-driven tests for the fallback path. | I01-F4-T3 | Done | Agent workflow now iteratively seeds target data, refines selectors, and records iteration logs when no rule set is found. |
 
 > The validation result typing cleanup previously tracked as `I01-F4-T5` moved to Iteration I02 as task `I02-F0-T1`.
 
@@ -54,8 +54,8 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 |----------|---------|-------------|--------------|------------|--------|-------|
 | 1 | I01-F5-T1 | Implement LocalFS-backed recipe store with versioned state machine (`draft → stable`). | Store module + tests covering save/promote/list. | I01-F2-T2 | Done | `packages/recipe-store` provides the adapter but still uses casts around lifecycle history. |
 | 2 | I01-F5-T2 | Create REST + CLI endpoints for `/recipes/generate`, `/recipes/promote`, `/parse` wired to orchestrator and recipe store. | Service handlers, CLI commands, integration test hitting fixture path. | I01-F4-T3, I01-F5-T1 | Done | Endpoints now accept live URLs, fetch documents, and reuse stored recipes; CLI and Fastify handlers share the workflow service. |
-| 3 | I01-F5-T3 | Target recipes by domain/path when reading from the store and return an explicit error when no stable recipe exists for a requested URL. | Extend the recipe store/query API to accept domain/path lookups plus service integration coverage. | I01-F5-T2 | Todo | Required so `/parse` and the CLI bypass orchestration once a recipe has been generated for a page. |
-| 4 | I01-F5-T4 | Persist newly generated recipes as reusable rule sets keyed by domain/path for arbitrary URLs. | Workflow service updates that write rule metadata alongside recipes and reload it on startup; integration test covering URL → generate → promote → parse without fixture rule seeds. | I01-F5-T3 | Todo | Ensures agent output becomes the default rule set for future requests without rerunning orchestration. |
+| 3 | I01-F5-T3 | Target recipes by domain/path when reading from the store and return an explicit error when no stable recipe exists for a requested URL. | Extend the recipe store/query API to accept domain/path lookups plus service integration coverage. | I01-F5-T2 | Done | Store records now capture domain/path metadata and `/parse` fails fast when no stable recipe is available. |
+| 4 | I01-F5-T4 | Persist newly generated recipes as reusable rule sets keyed by domain/path for arbitrary URLs. | Workflow service updates that write rule metadata alongside recipes and reload it on startup; integration test covering URL → generate → promote → parse without fixture rule seeds. | I01-F5-T3 | Done | Generated recipes store targeting metadata so once promoted they can be reused for parsing without re-running the agent loop. |
 | 5 | I01-F5-T7 | Restore Fastify resolution in Vitest integration tests. | Update test/bundler config so `fastify` loads during service integration tests. | I01-F5-T2 | Done | Install workspace dependencies (`pnpm install`) so Fastify resolves before running `pnpm test`. |
 
 > Reviewer tooling, Commander resolution, and lifecycle typing cleanups now live under Iteration I02 as tasks `I02-F0-T2` through `I02-F0-T4`.
@@ -71,8 +71,15 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 ## Acceptance Criteria
 
 - Given a product URL with no stored rules, the workflow service can fetch the document, run orchestration, and persist a draft recipe with selectors for the required product fields.
+- During generation the agent loop records iteration logs that show how the target data and selectors evolved until validation succeeded.
 - Once a recipe is promoted to stable, `/parse` and the CLI select the matching recipe for the requested domain/path and execute it without invoking the agent slice.
 - Requests for URLs without a stable recipe return a clear error indicating generation must run first.
 - Unit tests cover core transforms/tolerances; integration tests exercise the URL generation → promote → parse loop (fixtures acceptable for deterministic assertions).
 
 Document open questions or follow-up work in `Notes` fields or create new tasks for future iterations.
+
+## Agent Workflow Overview
+
+- Initialization runs automatically after fetching a document. OCR seeding and HTML probes provide a starting target data set without requiring manual confirmation.
+- The agent iteratively refines selectors and target data, emitting an iteration log that records the agent’s reasoning, selector updates, and scraped samples after each pass.
+- Workflow consumers must remain responsive: downstream UI work will expose cancel controls, iteration batching, and human-in-the-loop feedback before promotion.

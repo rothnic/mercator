@@ -34,6 +34,25 @@ describe('RecipeWorkflowService integration', () => {
     vi.restoreAllMocks();
   });
 
+  it('returns an error when parsing a URL without an existing stable recipe', async () => {
+    const url = 'https://demo.mercator.sh/products/precision-pour-over-kettle';
+    const fixture = loadProductSimpleFixture();
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(() => Promise.resolve(new Response(fixture.html, { status: 200 })));
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/parse',
+      payload: { url }
+    });
+
+    expect(response.statusCode).toBe(500);
+    const body = response.json();
+    expect(body).toMatchObject({ error: expect.stringContaining('No stable recipe available') });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('generates, promotes, and parses a recipe using fixture HTML path', async () => {
     const fixture = loadProductSimpleFixture();
     const htmlPath = fixture.paths.html;

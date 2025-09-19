@@ -4,9 +4,9 @@ This report captures the current state of the documentation, regressions that re
 
 ## Documentation Review
 
-- **README alignment** – The README now calls out that arbitrary URLs will fail until tasks `I01-F4-T5`, `I01-F5-T3`, and `I01-F5-T4` land, highlighting the remaining blockers to real-world usage.
-- **Iteration status** – Iteration I01 is explicitly scoped to those minimal tasks, while Iteration I02 carries the deferred cleanup/workflows that are not required for the first live run.
-- **Task backlog updates** – MVP-critical work sits in Iteration I01 (`I01-F4-T5`, `I01-F5-T3`, `I01-F5-T4`); reviewer tooling, Commander alias fixes, lifecycle typing, E2E coverage, and metrics were moved into Iteration I02 as tasks `I02-F0-T2` through `I02-F0-T6`.
+- **README alignment** – The README now documents the iterative agent workflow, explains how recipes persist with domain/path metadata, and reiterates that observability and reviewer tooling remain future work.
+- **Iteration status** – Iteration I01 acceptance criteria now call for iteration logs and domain-targeted execution; Iteration I02 still carries the deferred cleanup/workflows that are not required for the first live run.
+- **Task backlog updates** – MVP-critical work in Iteration I01 (`I01-F4-T5`, `I01-F5-T3`, `I01-F5-T4`) is complete; reviewer tooling, Commander alias fixes, lifecycle typing, E2E coverage, and metrics remain scheduled under Iteration I02 tasks `I02-F0-T2` through `I02-F0-T6`.
 - **Budget enforcement** – Task `I01-F4-T4` added runtime budget guards so orchestration stops once pass, tool invocation, or duration limits are exhausted.
 
 ## Historical Recovery Work
@@ -33,7 +33,7 @@ Documenting these regressions ensures we do not treat the surface as complete un
 
 To support the fully automated workflow (agent receives a URL, refines rules, and executes them without a human-in-the-loop), the following capabilities are still missing:
 
-1. **Dynamic recipe synthesis** – The orchestration slice still expects a rule set seeded from fixtures. Task `I01-F4-T5` must teach it to inspect the fetched HTML and propose selectors/expected data without any prior configuration.
-2. **Target-aware persistence** – Stable recipes are not indexed by domain/path today. Tasks `I01-F5-T3` and `I01-F5-T4` will persist agent output with targeting metadata so `/parse` can execute the correct rules or return a clear “generate first” error.
+1. **Review experience** – The service captures iteration logs but there is no UI yet for canceling runs, batching additional iterations, or feeding developer guidance between passes. That experience is planned alongside reviewer tooling in Iteration I02.
+2. **Rule reuse across restarts** – Generated recipes persist targeting metadata, but the in-memory rule repository still seeds itself from fixtures at startup. Loading stored recipes into the repository would let future generations reuse existing selectors without another agent synthesis loop.
 
 The new backlog tasks describe how to close these gaps so the next agent can focus on implementation instead of discovery.
