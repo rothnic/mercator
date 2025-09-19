@@ -20,7 +20,14 @@ type MercatorMastraInstance = Mastra<
   }
 >;
 
-const mastraConfig = {
+declare global {
+  // The dev server preloads a shim that defines a global `mastra` binding so
+  // Mastra's generated telemetry loader can safely reference it during
+  // initialization.
+  var mastra: MercatorMastraInstance | undefined;
+}
+
+export const mastra: MercatorMastraInstance = new Mastra({
   agents: {
     orchestratorAgent,
     researchAgent,
@@ -31,13 +38,17 @@ const mastraConfig = {
     orchestrationWorkflow
   },
   storage,
+  telemetry: {
+    enabled: false,
+    disableLocalExport: true
+  },
   logger: new PinoLogger({
     name: 'MercatorOrchestrator',
     level: 'info'
   })
-} satisfies ConstructorParameters<typeof Mastra>[0];
+} satisfies ConstructorParameters<typeof Mastra>[0]);
 
-export const mastra: MercatorMastraInstance = new Mastra(mastraConfig);
+globalThis.mastra = mastra;
 
 export type MercatorMastra = typeof mastra;
 export default mastra;
