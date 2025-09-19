@@ -14,6 +14,14 @@
       "types": "./dist/agents/index.d.ts",
       "import": "./dist/agents/index.js"
     },
+    "./tolerances": {
+      "types": "./dist/tolerances.d.ts",
+      "import": "./dist/tolerances.js"
+    },
+    "./transforms": {
+      "types": "./dist/transforms.d.ts",
+      "import": "./dist/transforms.js"
+    },
     "./package.json": "./package.json"
   },
   "files": ["dist"],

@@ -22,6 +22,7 @@ Documenting these regressions ensures we do not treat the surface as complete un
 
 - `pnpm typecheck` fails today because selector definitions omit defaults (e.g., `all` flags, `metrics`) and several modules import `@mercator/core` via path aliases that TypeScript cannot currently resolve. Tasks `I02-F0-T1` and `I02-F0-T4` track the necessary refactors.
 - `pnpm test` now exercises the Fastify-backed integration suite. Ensure dependencies are installed via `pnpm install` so the HTTP server resolves before running tests.
+- The Firecrawl-powered ingestion step requires `FIRECRAWL_API_KEY` at runtime. Local developers must export the key (or stub the tool) before calling `pnpm dev:agents` or orchestration will fail during the scrape.
 
 ## Code Quality Risks
 

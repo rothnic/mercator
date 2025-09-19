@@ -4,7 +4,7 @@ import { z } from 'zod';
 const subtaskSchema = z.object({
   id: z.string().min(1, 'Subtask id is required'),
   description: z.string().min(1, 'Subtask description is required'),
-  agent: z.enum(['researchAgent', 'analysisAgent']),
+  agent: z.enum(['ingestionAgent', 'targetModelerAgent', 'selectorAgent', 'evaluationAgent']),
   dependencies: z.array(z.string()).optional().default([]),
   priority: z.enum(['high', 'medium', 'low']).default('medium')
 });
