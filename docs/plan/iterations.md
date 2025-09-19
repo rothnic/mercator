@@ -4,8 +4,8 @@ Mercator evolves through thin vertical slices. Each iteration delivers a usable 
 
 | ID | Status  | Focus | Key Outcomes |
 |----|---------|-------|--------------|
-| I01 | In Progress | **MVP Product Page Loop** | Fixture-backed orchestration, LocalFS recipe store, CLI/REST thin slice; live URL ingestion and reviewer workflow remain open. |
-| I02 | Planned | **Real Product Pages & Canarying** | Introduce curated live URLs, canary vs stable comparison, budget tracking, improved observability. |
+| I01 | In Progress | **MVP Product Page Loop** | Agent slice can analyze a fetched product URL, persist the generated recipe with domain metadata, and execute it deterministically via CLI/REST. |
+| I02 | Planned | **Real Product Pages & Canarying** | Expand to curated live URLs, add canary/stable comparisons, observability, and address deferred MVP cleanup tasks. |
 | I03 | Planned | **Collection Pages & Pagination** | Extend schemas/agents to handle collection cards, pagination sampling, tolerance strategies for partial visibility. |
 | I04 | Planned | **Reviews & Interactivity** | Handle review sections with bounded Playwright plans or API usage, revisit queue for partial sections. |
 | I05 | Planned | **Playwright-first Domains & Variants** | Policy-gated Playwright generation, variant/offer modeling, transform catalog expansion. |

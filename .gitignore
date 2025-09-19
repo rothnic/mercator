@@ -3,5 +3,6 @@ node_modules
 .env
 apps/service/.env
 apps/service/mastra.db
+apps/service/.mastra
 coverage
 dist

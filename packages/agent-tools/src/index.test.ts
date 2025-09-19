@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { createFixtureToolset } from './index.js';
+import { createDocumentToolset, createFixtureToolset } from './index.js';
 
 describe('fixture toolset', () => {
   const toolset = createFixtureToolset();
@@ -48,5 +48,39 @@ describe('fixture toolset', () => {
       'markdown.search'
     ]);
     expect(usage.every((entry) => entry.timestamp)).toBe(true);
+  });
+});
+
+describe('createDocumentToolset', () => {
+  it('falls back to the full document when chunk metadata is missing', async () => {
+    const html = `
+      <html>
+        <body>
+          <section id="hero">
+            <h1 data-test="title">Dynamic Product</h1>
+          </section>
+        </body>
+      </html>
+    `;
+
+    const toolset = createDocumentToolset({ documentId: 'dynamic', html });
+    const result = await toolset.html.query({ selector: '[data-test="title"]', chunkId: 'hero' });
+
+    expect(result.totalMatches).toBe(1);
+    expect(result.matches[0]?.text).toBe('Dynamic Product');
+  });
+
+  it('returns provided OCR transcripts and empty markdown results when no markdown is supplied', async () => {
+    const html = '<html><body><p>Example</p></body></html>';
+    const transcript = ['line one', 'line two'];
+    const toolset = createDocumentToolset({ documentId: 'doc', html, ocrTranscript: transcript });
+
+    const ocr = await toolset.vision.readOcr();
+    expect(ocr.lines).toEqual(transcript);
+    expect(ocr.fullText).toBe('line one\nline two');
+
+    const markdown = await toolset.markdown.search({ query: 'anything' });
+    expect(markdown.matches).toEqual([]);
+    expect(markdown.totalMatches).toBe(0);
   });
 });

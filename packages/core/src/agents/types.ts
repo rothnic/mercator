@@ -45,6 +45,7 @@ export interface ExpectedDataSummary {
   readonly product: Product;
   readonly ocrTranscript: readonly string[];
   readonly supportingEvidence: readonly ExpectedFieldEvidence[];
+  readonly origin: 'rule-set' | 'agent';
 }
 
 export interface RecipeEvidenceRow {
@@ -55,9 +56,23 @@ export interface RecipeEvidenceRow {
   readonly notes?: string;
 }
 
+export interface AgentIterationLogEntry {
+  readonly iteration: number;
+  readonly agentThought: string;
+  readonly updatedTargetData: Partial<Product>;
+  readonly updatedSelectors: readonly {
+    readonly fieldId: RecipeFieldId;
+    readonly selector: string;
+    readonly notes?: string;
+  }[];
+  readonly scrapedSamples: Readonly<Record<string, unknown>>;
+}
+
 export interface RecipeSynthesisSummary {
   readonly recipe: Recipe;
   readonly evidenceMatrix: readonly RecipeEvidenceRow[];
+  readonly iterations: readonly AgentIterationLogEntry[];
+  readonly origin: 'rule-set' | 'agent';
 }
 
 export interface FieldValidationResult {

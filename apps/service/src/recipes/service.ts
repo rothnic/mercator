@@ -1,9 +1,15 @@
+import { createDocumentToolset } from '@mercator/agent-tools';
 import { RecipeSchema } from '@mercator/core';
 import type { OrchestrationResult } from '@mercator/core/agents';
+import type { FixtureToolset } from '@mercator/agent-tools';
 import { executeRecipe } from './execute.js';
 import { getFixtureDefinition, readFixtureDocument, type FixtureId } from './fixtures.js';
 import { runAgentOrchestrationSlice, type DocumentSnapshot } from '../orchestrator/index.js';
-import { createInMemoryRuleRepository, type DocumentRuleRepository } from '../orchestrator/rule-repository.js';
+import {
+  createInMemoryRuleRepository,
+  type DocumentHtmlChunkDefinition,
+  type DocumentRuleRepository
+} from '../orchestrator/rule-repository.js';
 import type { RecipeStore, StoredRecipe } from '@mercator/recipe-store';
 
 export interface RecipeWorkflowServiceOptions {
@@ -16,6 +22,7 @@ export interface GenerateRecipeOptions {
   readonly fixtureId?: FixtureId;
   readonly htmlPath?: string;
   readonly actor?: string;
+  readonly url?: string;
 }
 
 export interface GenerateRecipeResult {
@@ -32,6 +39,7 @@ export interface PromoteRecipeOptions {
 export interface ParseDocumentOptions {
   readonly fixtureId?: FixtureId;
   readonly htmlPath?: string;
+  readonly url?: string;
 }
 
 export interface ParseDocumentResult {
@@ -46,6 +54,10 @@ const createDefaultRuleRepository = (): DocumentRuleRepository => {
   return createInMemoryRuleRepository([fixture.createRuleSet()]);
 };
 
+const normalizePath = (value: string): string => {
+  return value.startsWith('/') ? value : `/${value}`;
+};
+
 export class RecipeWorkflowService {
   private readonly store: RecipeStore;
   private readonly ruleRepository: DocumentRuleRepository;
@@ -57,11 +69,87 @@ export class RecipeWorkflowService {
     this.now = options.now ?? (() => new Date());
   }
 
+  private assertDocumentSource(name: string, options: { url?: string | undefined; fixtureId?: FixtureId | undefined; htmlPath?: string | undefined }) {
+    const hasUrl = typeof options.url === 'string' && options.url.trim().length > 0;
+    if (!hasUrl) {
+      return;
+    }
+
+    if (options.fixtureId || options.htmlPath) {
+      throw new Error(`${name} accepts either a URL or fixture inputs, not both.`);
+    }
+  }
+
+  private async fetchDocumentFromUrl(rawUrl: string): Promise<DocumentSnapshot> {
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Invalid document URL: ${message}`);
+    }
+
+    const response = await fetch(parsed.toString(), {
+      headers: { accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch document ${parsed.toString()}: ${response.status} ${response.statusText}`);
+    }
+
+    const html = await response.text();
+    return {
+      domain: parsed.hostname,
+      path: parsed.pathname ? normalizePath(parsed.pathname) : '/',
+      html
+    };
+  }
+
+  private async createToolsetForDocument(document: DocumentSnapshot): Promise<FixtureToolset> {
+    const ruleSet = await this.ruleRepository.getRuleSet({
+      domain: document.domain,
+      path: document.path
+    });
+
+    if (!ruleSet) {
+      return createDocumentToolset({
+        documentId: `${document.domain}${document.path}`,
+        html: document.html
+      });
+    }
+
+    const chunkMetadata: readonly DocumentHtmlChunkDefinition[] | undefined = ruleSet.htmlChunks;
+    return createDocumentToolset({
+      documentId: ruleSet.id,
+      html: document.html,
+      ocrTranscript: ruleSet.providedOcrTranscript,
+      chunkMetadata
+    });
+  }
+
+  private async findStableRecipeForDocument(domain: string, path: string): Promise<StoredRecipe | undefined> {
+    const normalizedPath = normalizePath(path);
+    const candidates = await this.store.list({ state: 'stable' });
+    const reversed = [...candidates].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return reversed.find((entry) => entry.document?.domain === domain && entry.document?.path === normalizedPath);
+  }
+
   async generateRecipe(options: GenerateRecipeOptions = {}): Promise<GenerateRecipeResult> {
-    const fixtureId = options.fixtureId ?? 'product-simple';
-    const fixture = getFixtureDefinition(fixtureId);
-    const document = await readFixtureDocument(fixtureId, options.htmlPath);
-    const toolset = fixture.createToolset();
+    this.assertDocumentSource('generateRecipe', options);
+
+    let document: DocumentSnapshot;
+    let toolset: FixtureToolset;
+
+    const documentUrl = options.url?.trim();
+    if (documentUrl) {
+      document = await this.fetchDocumentFromUrl(documentUrl);
+      toolset = await this.createToolsetForDocument(document);
+    } else {
+      const fixtureId = options.fixtureId ?? 'product-simple';
+      const fixture = getFixtureDefinition(fixtureId);
+      document = await readFixtureDocument(fixtureId, options.htmlPath);
+      toolset = fixture.createToolset();
+    }
 
     const orchestration: OrchestrationResult = await runAgentOrchestrationSlice({
       document,
@@ -80,7 +168,8 @@ export class RecipeWorkflowService {
     const stored = await this.store.createDraft(recipe, {
       actor: options.actor,
       notes: 'Recipe generated via orchestration.',
-      when: this.now()
+      when: this.now(),
+      document: { domain: document.domain, path: document.path }
     });
 
     return { stored, orchestration, document };
@@ -95,13 +184,45 @@ export class RecipeWorkflowService {
   }
 
   async parseDocument(options: ParseDocumentOptions = {}): Promise<ParseDocumentResult> {
-    const stable = await this.store.getLatestStable();
+    this.assertDocumentSource('parseDocument', options);
+
+    const documentUrl = options.url?.trim();
+
+    let stable: StoredRecipe | undefined;
+    let document: DocumentSnapshot;
+
+    if (documentUrl) {
+      let parsed: URL;
+      try {
+        parsed = new URL(documentUrl);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Invalid document URL: ${message}`);
+      }
+
+      const domain = parsed.hostname;
+      const path = parsed.pathname ? normalizePath(parsed.pathname) : '/';
+      stable = await this.findStableRecipeForDocument(domain, path);
+      if (!stable) {
+        throw new Error(
+          `No stable recipe available for ${domain}${path}. Generate and promote a recipe before parsing.`
+        );
+      }
+
+      document = await this.fetchDocumentFromUrl(parsed.toString());
+    } else {
+      document = await readFixtureDocument(options.fixtureId ?? 'product-simple', options.htmlPath);
+      stable = await this.findStableRecipeForDocument(document.domain, document.path);
+      if (!stable) {
+        throw new Error(
+          `No stable recipe available for ${document.domain}${document.path}. Generate and promote a recipe before parsing.`
+        );
+      }
+    }
+
     if (!stable) {
       throw new Error('No stable recipe available for execution.');
     }
-
-    const fixtureId = options.fixtureId ?? 'product-simple';
-    const document = await readFixtureDocument(fixtureId, options.htmlPath);
     const execution = executeRecipe(document.html, stable.recipe);
 
     return {

@@ -51,13 +51,16 @@ export const createCli = (options: CreateCliOptions): Command => {
     .description('Run the orchestration loop to generate a draft recipe')
     .option('--fixture <id>', 'Fixture identifier', 'product-simple')
     .option('--html <path>', 'Path to HTML document for orchestration')
+    .option('--url <url>', 'Document URL to fetch before orchestration')
     .option('--actor <actor>', 'Actor recorded for storage history')
     .action(
-      handle(async (command: { fixture?: string; html?: string; actor?: string }) => {
-        const fixtureId = parseFixtureId(command.fixture);
+      handle(async (command: { fixture?: string; html?: string; actor?: string; url?: string }) => {
+        const documentUrl = command.url?.trim();
+        const fixtureId = documentUrl ? undefined : parseFixtureId(command.fixture);
         const result = await service.generateRecipe({
+          url: documentUrl,
           fixtureId,
-          htmlPath: command.html,
+          htmlPath: documentUrl ? undefined : command.html,
           actor: command.actor
         });
         writeJson({
@@ -91,12 +94,15 @@ export const createCli = (options: CreateCliOptions): Command => {
     .description('Execute the latest stable recipe against a document')
     .option('--fixture <id>', 'Fixture identifier', 'product-simple')
     .option('--html <path>', 'Path to HTML document to parse')
+    .option('--url <url>', 'Document URL to fetch before execution')
     .action(
-      handle(async (command: { fixture?: string; html?: string }) => {
-        const fixtureId = parseFixtureId(command.fixture);
+      handle(async (command: { fixture?: string; html?: string; url?: string }) => {
+        const documentUrl = command.url?.trim();
+        const fixtureId = documentUrl ? undefined : parseFixtureId(command.fixture);
         const result = await service.parseDocument({
+          url: documentUrl,
           fixtureId,
-          htmlPath: command.html
+          htmlPath: documentUrl ? undefined : command.html
         });
         writeJson({
           recipeId: result.recipe.id,

@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "mastra dev --dir src/mastra",
+    "dev": "NODE_OPTIONS=\"--import=$(pwd)/src/mastra/preload.mjs\" mastra dev --dir src/mastra",
     "build": "mastra build --dir src/mastra",
-    "start": "mastra start --dir src/mastra",
+    "start": "NODE_OPTIONS=\"--import=$(pwd)/src/mastra/preload.mjs\" mastra start --dir src/mastra",
     "lint": "eslint src --ext .ts",
     "test": "vitest run"
   },

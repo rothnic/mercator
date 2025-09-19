@@ -3,6 +3,7 @@ import { getDefaultTolerance } from '@mercator/core';
 import {
   PRODUCT_SIMPLE_FIXTURE_ID,
   getProductSimpleExpectedProduct,
+  listProductSimpleHtmlChunks,
   loadProductSimpleFixture
 } from '@mercator/fixtures';
 
@@ -311,6 +312,7 @@ export const createProductSimpleRuleSet = (): DocumentRuleSet => {
       createdBy: 'fixtures@mercator',
       updatedBy: 'fixtures@mercator'
     },
+    htmlChunks: listProductSimpleHtmlChunks(),
     evidenceInstructions: createEvidenceInstructions(),
     fieldRules: createFieldRecipes(),
     providedOcrTranscript: loadProductSimpleFixture().expected.ocrTranscript

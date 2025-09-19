@@ -12,7 +12,7 @@ const requirementsSchema = z
 const subtaskSchema = z.object({
   id: z.string(),
   description: z.string(),
-  agent: z.enum(['researchAgent', 'analysisAgent']),
+  agent: z.enum(['ingestionAgent', 'targetModelerAgent', 'selectorAgent', 'evaluationAgent']),
   dependencies: z.array(z.string()),
   estimatedTime: z.number().int().nonnegative()
 });
@@ -52,18 +52,32 @@ const taskAnalysisStep = createStep({
 
     const subtasks: z.infer<typeof subtaskSchema>[] = [
       {
-        id: 'research-phase',
-        description: 'Research and gather relevant information for the requested topic.',
-        agent: 'researchAgent' as const,
+        id: 'ingestion-phase',
+        description: 'Scrape the URL, register the document workspace, and report any existing recipes.',
+        agent: 'ingestionAgent' as const,
         dependencies: [] as string[],
         estimatedTime: 120
       },
       {
-        id: 'analysis-phase',
-        description: 'Synthesize research findings and prepare recommendations.',
-        agent: 'analysisAgent' as const,
-        dependencies: ['research-phase'],
+        id: 'target-modeling-phase',
+        description: 'Review screenshots/markdown to build or refine the product target draft.',
+        agent: 'targetModelerAgent' as const,
+        dependencies: ['ingestion-phase'],
         estimatedTime: 180
+      },
+      {
+        id: 'selector-design-phase',
+        description: 'Propose CSS selectors, register rules, and iterate until extraction aligns with the target draft.',
+        agent: 'selectorAgent' as const,
+        dependencies: ['target-modeling-phase'],
+        estimatedTime: 240
+      },
+      {
+        id: 'evaluation-phase',
+        description: 'Compare rule outputs to the target draft and summarize readiness for promotion.',
+        agent: 'evaluationAgent' as const,
+        dependencies: ['selector-design-phase'],
+        estimatedTime: 120
       }
     ];
 

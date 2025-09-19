@@ -7,7 +7,7 @@ Tasks are grouped by iteration and feature area. Always pick work from the earli
 
 | Iteration | Status | Task File |
 |-----------|--------|-----------|
-| I01 – MVP Product Page Loop | Planned | [iteration-01-mvp.md](iteration-01-mvp.md) |
+| I01 – MVP Product Page Loop | In Progress | [iteration-01-mvp.md](iteration-01-mvp.md) |
 | I02 – Live Products & Canarying | Draft | [iteration-02-live-products.md](iteration-02-live-products.md) |
 
 If new work is discovered, add it as a task in the appropriate iteration with clear dependencies rather than editing vision or architecture docs.
