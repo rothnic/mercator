@@ -44,7 +44,7 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 | 2 | I01-F4-T2 | Implement selector recipe synthesis for fixture (map expected fields to CSS selectors, apply transforms/tolerances). | Module producing recipe object, tests verifying selectors match fixture DOM. | I01-F4-T1 | Done | refactor: drive orchestrator from rule repository (b68add2). |
 | 3 | I01-F4-T3 | Implement validator pass computing per-field/document confidence using tolerance helpers and Zod. | Validation module + tests verifying success/failure cases for fixture variations. | I01-F4-T2, I01-F2-T3 | Done | refactor: drive orchestrator from rule repository (b68add2). |
 | 4 | I01-F4-T4 | Enforce orchestration budget and token spend limits before each pass. | Budget tracker that halts passes when limits are exceeded, unit tests covering stop conditions. | I01-F4-T3 | Done | Added budget guard that stops passes once pass, tool invocation, or duration limits are exceeded. |
-| 5 | I01-F4-T5 | Enable orchestration to derive selectors when no rule set exists by analyzing fetched HTML. | Update the orchestration passes so an empty rule repository still produces a candidate recipe and expected data for required product fields; add fixture-driven tests for the fallback path. | I01-F4-T3 | Done | Agent workflow now iteratively seeds target data, refines selectors, and records iteration logs when no rule set is found. |
+| 5 | I01-F4-T5 | Enable orchestration to derive selectors when no rule set exists by analyzing fetched HTML. | Update the orchestration passes so an empty rule repository still produces a candidate recipe and expected data for required product fields; add fixture-driven tests for the fallback path. | I01-F4-T3 | Done | Agent workflow now iteratively seeds target data, refines selectors with OCR/text-driven heuristics instead of hard-coded values, and records iteration logs when no rule set is found. |
 
 > The validation result typing cleanup previously tracked as `I01-F4-T5` moved to Iteration I02 as task `I02-F0-T1`.
 
@@ -70,7 +70,7 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 
 ## Acceptance Criteria
 
-- Given a product URL with no stored rules, the workflow service can fetch the document, run orchestration, and persist a draft recipe with selectors for the required product fields.
+- Given a product URL with no stored rules, the workflow service can fetch the document, run orchestration, and persist a draft recipe with selectors for the required product fields. Selector synthesis must leverage OCR/text heuristics rather than fixture-specific selector constants so the workflow applies to arbitrary pages.
 - During generation the agent loop records iteration logs that show how the target data and selectors evolved until validation succeeded.
 - Once a recipe is promoted to stable, `/parse` and the CLI select the matching recipe for the requested domain/path and execute it without invoking the agent slice.
 - Requests for URLs without a stable recipe return a clear error indicating generation must run first.
