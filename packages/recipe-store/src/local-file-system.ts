@@ -12,6 +12,7 @@ import {
 import type {
   CreateDraftOptions,
   PromotionOptions,
+  RecipeDocumentDescriptor,
   RecipeStore,
   StoredRecipe
 } from './types.js';
@@ -22,6 +23,7 @@ interface FileRecord {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly promotedAt?: string;
+  readonly document?: RecipeDocumentDescriptor;
 }
 
 const isLifecycleState = (value: unknown): value is LifecycleState => {
@@ -105,7 +107,8 @@ export class LocalFileSystemRecipeStore implements RecipeStore {
       id,
       recipe: normalized,
       createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
+      updatedAt: now.toISOString(),
+      document: options.document
     };
 
     await this.writeRecord(record);
@@ -229,12 +232,19 @@ export class LocalFileSystemRecipeStore implements RecipeStore {
     }
 
     const recipe = RecipeSchema.parse(parsed.recipe);
+    const document = parsed.document
+      ? {
+          domain: String(parsed.document.domain),
+          path: String(parsed.document.path)
+        }
+      : undefined;
     return {
       id: parsed.id,
       recipe,
       createdAt: new Date(parsed.createdAt),
       updatedAt: new Date(parsed.updatedAt),
-      promotedAt: parsed.promotedAt ? new Date(parsed.promotedAt) : undefined
+      promotedAt: parsed.promotedAt ? new Date(parsed.promotedAt) : undefined,
+      document
     } satisfies StoredRecipe;
   }
 
@@ -279,7 +289,8 @@ export class LocalFileSystemRecipeStore implements RecipeStore {
       },
       createdAt: new Date(record.createdAt),
       updatedAt: new Date(record.updatedAt),
-      promotedAt: record.promotedAt ? new Date(record.promotedAt) : undefined
+      promotedAt: record.promotedAt ? new Date(record.promotedAt) : undefined,
+      document: record.document ? { ...record.document } : undefined
     };
   }
 }

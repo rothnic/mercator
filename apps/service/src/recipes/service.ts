@@ -1,21 +1,37 @@
+import { createDocumentToolset } from '@mercator/agent-tools';
 import { RecipeSchema } from '@mercator/core';
 import type { OrchestrationResult } from '@mercator/core/agents';
+import type { FixtureToolset } from '@mercator/agent-tools';
 import { executeRecipe } from './execute.js';
 import { getFixtureDefinition, readFixtureDocument, type FixtureId } from './fixtures.js';
 import { runAgentOrchestrationSlice, type DocumentSnapshot } from '../orchestrator/index.js';
-import { createInMemoryRuleRepository, type DocumentRuleRepository } from '../orchestrator/rule-repository.js';
+import {
+  createInMemoryRuleRepository,
+  type DocumentHtmlChunkDefinition,
+  type DocumentRuleRepository
+} from '../orchestrator/rule-repository.js';
 import type { RecipeStore, StoredRecipe } from '@mercator/recipe-store';
+import {
+  ingestDocument,
+  createFirecrawlClientFromEnv,
+  type FirecrawlClient,
+  type IngestedDocument
+} from '../ingestion/index.js';
+import { createConsoleLogger, type ServiceLogger } from '../logger.js';
 
 export interface RecipeWorkflowServiceOptions {
   readonly store: RecipeStore;
   readonly ruleRepository?: DocumentRuleRepository;
   readonly now?: () => Date;
+  readonly firecrawlClient?: FirecrawlClient;
+  readonly logger?: ServiceLogger;
 }
 
 export interface GenerateRecipeOptions {
   readonly fixtureId?: FixtureId;
   readonly htmlPath?: string;
   readonly actor?: string;
+  readonly url?: string;
 }
 
 export interface GenerateRecipeResult {
@@ -32,6 +48,7 @@ export interface PromoteRecipeOptions {
 export interface ParseDocumentOptions {
   readonly fixtureId?: FixtureId;
   readonly htmlPath?: string;
+  readonly url?: string;
 }
 
 export interface ParseDocumentResult {
@@ -46,22 +63,110 @@ const createDefaultRuleRepository = (): DocumentRuleRepository => {
   return createInMemoryRuleRepository([fixture.createRuleSet()]);
 };
 
+const normalizePath = (value: string): string => {
+  return value.startsWith('/') ? value : `/${value}`;
+};
+
 export class RecipeWorkflowService {
   private readonly store: RecipeStore;
   private readonly ruleRepository: DocumentRuleRepository;
   private readonly now: () => Date;
+  private readonly firecrawl?: FirecrawlClient;
+  private readonly logger: ServiceLogger;
 
   constructor(options: RecipeWorkflowServiceOptions) {
     this.store = options.store;
     this.ruleRepository = options.ruleRepository ?? createDefaultRuleRepository();
     this.now = options.now ?? (() => new Date());
+    this.firecrawl = options.firecrawlClient ?? createFirecrawlClientFromEnv();
+    this.logger = options.logger ?? createConsoleLogger();
+  }
+
+  private assertDocumentSource(name: string, options: { url?: string | undefined; fixtureId?: FixtureId | undefined; htmlPath?: string | undefined }) {
+    const hasUrl = typeof options.url === 'string' && options.url.trim().length > 0;
+    if (!hasUrl) {
+      return;
+    }
+
+    if (options.fixtureId || options.htmlPath) {
+      throw new Error(`${name} accepts either a URL or fixture inputs, not both.`);
+    }
+  }
+
+  private async ingestDocumentFromUrl(rawUrl: string): Promise<IngestedDocument> {
+    const ingestion = await ingestDocument({
+      url: rawUrl,
+      firecrawlClient: this.firecrawl,
+      logger: this.logger
+    });
+
+    if (ingestion.ocrTranscript.length === 0) {
+      this.logger.warn('Ingestion returned an empty OCR transcript.', {
+        url: rawUrl,
+        source: ingestion.source
+      });
+    }
+
+    return ingestion;
+  }
+
+  private async createToolsetForDocument(
+    document: DocumentSnapshot,
+    ingestion?: Pick<IngestedDocument, 'ocrTranscript' | 'markdown' | 'htmlChunks'>
+  ): Promise<FixtureToolset> {
+    const ruleSet = await this.ruleRepository.getRuleSet({
+      domain: document.domain,
+      path: document.path
+    });
+
+    const transcript =
+      ruleSet?.providedOcrTranscript && ruleSet.providedOcrTranscript.length > 0
+        ? ruleSet.providedOcrTranscript
+        : ingestion?.ocrTranscript;
+
+    const chunkMetadata: readonly DocumentHtmlChunkDefinition[] | undefined =
+      ruleSet?.htmlChunks ?? ingestion?.htmlChunks;
+
+    const documentId = ruleSet?.id ?? `${document.domain}${document.path}`;
+
+    return createDocumentToolset({
+      documentId,
+      html: document.html,
+      markdown: ingestion?.markdown,
+      ocrTranscript: transcript,
+      chunkMetadata
+    });
+  }
+
+  private async findStableRecipeForDocument(domain: string, path: string): Promise<StoredRecipe | undefined> {
+    const normalizedPath = normalizePath(path);
+    const candidates = await this.store.list({ state: 'stable' });
+    const reversed = [...candidates].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return reversed.find((entry) => entry.document?.domain === domain && entry.document?.path === normalizedPath);
   }
 
   async generateRecipe(options: GenerateRecipeOptions = {}): Promise<GenerateRecipeResult> {
-    const fixtureId = options.fixtureId ?? 'product-simple';
-    const fixture = getFixtureDefinition(fixtureId);
-    const document = await readFixtureDocument(fixtureId, options.htmlPath);
-    const toolset = fixture.createToolset();
+    this.assertDocumentSource('generateRecipe', options);
+
+    let document: DocumentSnapshot;
+    let toolset: FixtureToolset;
+
+    const documentUrl = options.url?.trim();
+    if (documentUrl) {
+      const ingestion = await this.ingestDocumentFromUrl(documentUrl);
+      document = ingestion.document;
+      toolset = await this.createToolsetForDocument(document, ingestion);
+      this.logger.info('Prepared agent toolset for ingested URL.', {
+        url: documentUrl,
+        source: ingestion.source,
+        transcriptLength: ingestion.ocrTranscript.length
+      });
+    } else {
+      const fixtureId = options.fixtureId ?? 'product-simple';
+      const fixture = getFixtureDefinition(fixtureId);
+      document = await readFixtureDocument(fixtureId, options.htmlPath);
+      toolset = fixture.createToolset();
+    }
 
     const orchestration: OrchestrationResult = await runAgentOrchestrationSlice({
       document,
@@ -80,7 +185,8 @@ export class RecipeWorkflowService {
     const stored = await this.store.createDraft(recipe, {
       actor: options.actor,
       notes: 'Recipe generated via orchestration.',
-      when: this.now()
+      when: this.now(),
+      document: { domain: document.domain, path: document.path }
     });
 
     return { stored, orchestration, document };
@@ -95,13 +201,46 @@ export class RecipeWorkflowService {
   }
 
   async parseDocument(options: ParseDocumentOptions = {}): Promise<ParseDocumentResult> {
-    const stable = await this.store.getLatestStable();
+    this.assertDocumentSource('parseDocument', options);
+
+    const documentUrl = options.url?.trim();
+
+    let stable: StoredRecipe | undefined;
+    let document: DocumentSnapshot;
+
+    if (documentUrl) {
+      let parsed: URL;
+      try {
+        parsed = new URL(documentUrl);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Invalid document URL: ${message}`);
+      }
+
+      const domain = parsed.hostname;
+      const path = parsed.pathname ? normalizePath(parsed.pathname) : '/';
+      stable = await this.findStableRecipeForDocument(domain, path);
+      if (!stable) {
+        throw new Error(
+          `No stable recipe available for ${domain}${path}. Generate and promote a recipe before parsing.`
+        );
+      }
+
+      const ingestion = await this.ingestDocumentFromUrl(parsed.toString());
+      document = ingestion.document;
+    } else {
+      document = await readFixtureDocument(options.fixtureId ?? 'product-simple', options.htmlPath);
+      stable = await this.findStableRecipeForDocument(document.domain, document.path);
+      if (!stable) {
+        throw new Error(
+          `No stable recipe available for ${document.domain}${document.path}. Generate and promote a recipe before parsing.`
+        );
+      }
+    }
+
     if (!stable) {
       throw new Error('No stable recipe available for execution.');
     }
-
-    const fixtureId = options.fixtureId ?? 'product-simple';
-    const document = await readFixtureDocument(fixtureId, options.htmlPath);
     const execution = executeRecipe(document.html, stable.recipe);
 
     return {

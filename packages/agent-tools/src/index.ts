@@ -2,7 +2,6 @@ import { load, type Cheerio, type CheerioAPI } from 'cheerio';
 import { ElementType } from 'domelementtype';
 import type { AnyNode, Element } from 'domhandler';
 
-import type { HtmlChunkMetadata } from '@mercator/fixtures';
 import {
   listProductSimpleHtmlChunks,
   loadProductSimpleFixture,
@@ -27,7 +26,14 @@ export interface VisionOcrResult {
   readonly region?: string;
 }
 
-export interface HtmlChunkSummary extends HtmlChunkMetadata {
+export interface HtmlChunkDefinition {
+  readonly id: string;
+  readonly selector: string;
+  readonly label?: string;
+  readonly description?: string;
+}
+
+export interface HtmlChunkSummary extends HtmlChunkDefinition {
   readonly snippet: string;
   readonly nodeCount: number;
 }
@@ -218,7 +224,7 @@ const splitMarkdownSections = (markdown: string): MarkdownSection[] => {
 
 const createHtmlChunkSummaries = (
   $: CheerioAPI,
-  metadata: readonly HtmlChunkMetadata[]
+  metadata: readonly HtmlChunkDefinition[]
 ): HtmlChunkSummary[] => {
   return metadata.map((chunk) => {
     const nodes = $(chunk.selector);
@@ -233,7 +239,7 @@ const createHtmlChunkSummaries = (
 
 const resolveChunkRoot = (
   $: CheerioAPI,
-  metadata: Map<string, HtmlChunkMetadata>,
+  metadata: Map<string, HtmlChunkDefinition>,
   chunkId?: string
 ): { root: Cheerio<Element>; summary?: HtmlChunkSummary } => {
   const fallbackRoot = $('html');
@@ -243,7 +249,7 @@ const resolveChunkRoot = (
 
   const chunk = metadata.get(chunkId);
   if (!chunk) {
-    throw new Error(`Unknown chunk id: ${chunkId}`);
+    return { root: fallbackRoot };
   }
 
   const nodes = $(chunk.selector);
@@ -319,29 +325,32 @@ const computeMarkdownMatches = (sections: MarkdownSection[], request: MarkdownSe
   };
 };
 
-export const createFixtureToolset = (options?: { fixtureId?: string }): FixtureToolset => {
-  const fixtureId = options?.fixtureId ?? PRODUCT_SIMPLE_FIXTURE_ID;
-  if (fixtureId !== PRODUCT_SIMPLE_FIXTURE_ID) {
-    throw new Error(`Unsupported fixture id: ${fixtureId}`);
-  }
+export interface DocumentToolsetOptions {
+  readonly documentId?: string;
+  readonly html: string;
+  readonly chunkMetadata?: readonly HtmlChunkDefinition[];
+  readonly markdown?: string;
+  readonly ocrTranscript?: readonly string[];
+}
 
-  const fixture = loadProductSimpleFixture();
-  const $ = load(fixture.html);
-  const chunkMetadata = listProductSimpleHtmlChunks();
+export const createDocumentToolset = (options: DocumentToolsetOptions): FixtureToolset => {
+  const documentId = options.documentId ?? 'document';
+  const $ = load(options.html);
+  const chunkMetadata = options.chunkMetadata ?? [];
   const chunkLookup = new Map(chunkMetadata.map((chunk) => [chunk.id, chunk]));
   const chunkSummaries = createHtmlChunkSummaries($, chunkMetadata);
-  const markdownSections = splitMarkdownSections(fixture.markdown);
+  const markdownSections = options.markdown ? splitMarkdownSections(options.markdown) : [];
   const usage = createUsageRecorder();
+  const transcript = options.ocrTranscript ?? [];
 
   return {
     vision: {
       readOcr(request: VisionOcrRequest = {}): Promise<VisionOcrResult> {
         usage.record('vision.ocr', request);
-        const lines = fixture.expected.ocrTranscript;
         return Promise.resolve({
-          fixtureId: fixture.id,
-          lines,
-          fullText: lines.join('\n'),
+          fixtureId: documentId,
+          lines: [...transcript],
+          fullText: transcript.join('\n'),
           region: request.region
         });
       }
@@ -360,7 +369,7 @@ export const createFixtureToolset = (options?: { fixtureId?: string }): FixtureT
         const matches = createHtmlQueryMatches($, root, request);
         const totalMatches = root.find(request.selector).length;
         return Promise.resolve({
-          fixtureId: fixture.id,
+          fixtureId: documentId,
           totalMatches,
           matches,
           chunk: summary
@@ -373,9 +382,12 @@ export const createFixtureToolset = (options?: { fixtureId?: string }): FixtureT
           throw new Error('Query must not be empty');
         }
         usage.record('markdown.search', request);
+        if (!options.markdown) {
+          return Promise.resolve({ fixtureId: documentId, matches: [], totalMatches: 0 });
+        }
         const { matches, totalMatches } = computeMarkdownMatches(markdownSections, request);
         return Promise.resolve({
-          fixtureId: fixture.id,
+          fixtureId: documentId,
           matches,
           totalMatches
         });
@@ -384,4 +396,22 @@ export const createFixtureToolset = (options?: { fixtureId?: string }): FixtureT
     getUsageLog: () => usage.getUsageLog(),
     resetUsageLog: () => usage.resetUsageLog()
   };
+};
+
+export const createFixtureToolset = (options?: { fixtureId?: string }): FixtureToolset => {
+  const fixtureId = options?.fixtureId ?? PRODUCT_SIMPLE_FIXTURE_ID;
+  if (fixtureId !== PRODUCT_SIMPLE_FIXTURE_ID) {
+    throw new Error(`Unsupported fixture id: ${fixtureId}`);
+  }
+
+  const fixture = loadProductSimpleFixture();
+  const chunkMetadata = listProductSimpleHtmlChunks();
+
+  return createDocumentToolset({
+    documentId: fixture.id,
+    html: fixture.html,
+    markdown: fixture.markdown,
+    ocrTranscript: fixture.expected.ocrTranscript,
+    chunkMetadata
+  });
 };

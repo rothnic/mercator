@@ -27,13 +27,16 @@ export const createServer = (options: CreateServerOptions): FastifyInstance => {
       .object({
         fixtureId: z.string().optional(),
         htmlPath: z.string().optional(),
-        actor: z.string().optional()
+        actor: z.string().optional(),
+        url: z.string().url().optional()
       })
       .strict();
 
     const body = schema.parse(request.body ?? {});
-    const fixtureId = parseFixtureId(body.fixtureId);
+    const documentUrl = body.url?.trim();
+    const fixtureId = documentUrl ? undefined : parseFixtureId(body.fixtureId);
     const result = await service.generateRecipe({
+      url: documentUrl,
       fixtureId,
       htmlPath: body.htmlPath,
       actor: body.actor
@@ -72,13 +75,16 @@ export const createServer = (options: CreateServerOptions): FastifyInstance => {
     const schema = z
       .object({
         fixtureId: z.string().optional(),
-        htmlPath: z.string().optional()
+        htmlPath: z.string().optional(),
+        url: z.string().url().optional()
       })
       .strict();
 
     const body = schema.parse(request.body ?? {});
-    const fixtureId = parseFixtureId(body.fixtureId);
+    const documentUrl = body.url?.trim();
+    const fixtureId = documentUrl ? undefined : parseFixtureId(body.fixtureId);
     const result = await service.parseDocument({
+      url: documentUrl,
       fixtureId,
       htmlPath: body.htmlPath
     });
