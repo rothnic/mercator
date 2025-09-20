@@ -66,6 +66,8 @@ export const buildRecipeFromRuleSet = (options: RecipeSynthesisOptions): RecipeS
 
   return {
     recipe,
-    evidenceMatrix
+    evidenceMatrix,
+    iterations: [],
+    origin: 'rule-set'
   };
 };

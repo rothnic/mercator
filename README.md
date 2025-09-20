@@ -61,7 +61,12 @@ Additional apps (e.g., `reviewer-ui`) and packages (`core`, `sdk`, `agent-tools`
 
 ## Current State & Limitations
 
-The repository currently exercises the workflow against the synthetic `product-simple` fixture only. Dynamic URL ingestion,
-rule discovery, and cost-aware budgeting are still open items tracked in the task backlog. CLI and HTTP entrypoints are wired
-to the fixture toolchain, so they require local HTML paths generated from the fixtures. Follow-up work to add live document
-fetching, persisted rule repositories, and stronger budget enforcement is outlined in `docs/tasks/iteration-01-mvp.md`.
+Mercator now ingests arbitrary product URLs by calling Firecrawl (when `FIRECRAWL_API_KEY` is configured) to collect HTML, markdown, screenshot metadata, and an OCR transcript. The ingestion step logs when the remote service is unavailable and falls back to direct HTML fetches so developers can still exercise the workflow locally.
+
+The three-pass workflow then produces reusable recipes:
+
+1. The Mastra-backed recipe agent invokes a deterministic `generate_recipe` tool that seeds target data from the ingested transcript (or markdown fallback), inspects live HTML via the shared tools, and iteratively refines selectors until the scraped output matches the evolving target data. Selector synthesis relies on heuristics that search for attribute hints and text tokens—no hard-coded fixture selectors remain. Iteration logs and tool usage are captured in the orchestration response, and orchestration now logs rich error details when agent passes fail.
+2. Newly generated recipes are stored as drafts together with their domain/path metadata. Once promoted, subsequent `/parse` or CLI execution requests reuse the stored recipe without invoking the agent.
+3. If no stable recipe exists for the requested domain/path, `/parse` returns a clear error so the caller can trigger the agent workflow first.
+
+The MVP still focuses on deterministic fixture data for assertions, and the reviewer UI remains a future iteration. Budget enforcement guards the agent loop, but observability, canarying, richer OCR of screenshots, and reviewer tooling continue to live in Iteration I02.

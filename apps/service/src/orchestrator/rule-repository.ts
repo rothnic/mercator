@@ -38,6 +38,13 @@ export type EvidenceInstruction =
   | MarkdownEvidenceInstruction
   | VisionEvidenceInstruction;
 
+export interface DocumentHtmlChunkDefinition {
+  readonly id: string;
+  readonly selector: string;
+  readonly label?: string;
+  readonly description?: string;
+}
+
 export interface FieldRuleDefinition {
   readonly recipe: FieldRecipe;
   readonly source: EvidenceSource;
@@ -62,6 +69,7 @@ export interface DocumentRuleSet {
   readonly evidenceInstructions: readonly EvidenceInstruction[];
   readonly fieldRules: readonly FieldRuleDefinition[];
   readonly providedOcrTranscript?: readonly string[];
+  readonly htmlChunks?: readonly DocumentHtmlChunkDefinition[];
 }
 
 export interface DocumentRuleRepository {

@@ -127,6 +127,7 @@ export const collectExpectedData = async (
     fixtureId: ruleSet.id,
     product: ruleSet.expectedProduct,
     ocrTranscript: transcript,
-    supportingEvidence
+    supportingEvidence,
+    origin: 'rule-set'
   };
 };
