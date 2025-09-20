@@ -16,6 +16,7 @@ import { buildRecipeFromRuleSet } from './recipe-synthesis.js';
 import type { DocumentRuleRepository } from './rule-repository.js';
 import { validateRecipeAgainstDocument } from './validation.js';
 import { synthesizeRecipeWithAgent } from './dynamic-rule-generator.js';
+import { serializeError } from '../logger.js';
 
 const mapUsageLog = (entries: readonly ToolUsageEntry[]): AgentToolInvocation[] => {
   return entries.map((entry) => ({
@@ -106,120 +107,129 @@ export const runAgentOrchestrationSlice = async (
   options: OrchestrationOptions
 ): Promise<OrchestrationResult> => {
   const { document, toolset, ruleRepository } = options;
-  const now = options.now ?? (() => new Date());
-  const start = now().getTime();
-  const budget = createBudget(start, options.budget);
-  const budgetGuard = createBudgetGuard(budget, start, now);
 
-  if (budget.maxPasses < 3) {
-    throw new Error('Agent orchestration slice requires at least three passes.');
-  }
+  try {
+    const now = options.now ?? (() => new Date());
+    const start = now().getTime();
+    const budget = createBudget(start, options.budget);
+    const budgetGuard = createBudgetGuard(budget, start, now);
 
-  const ruleSet = await ruleRepository.getRuleSet({ domain: document.domain, path: document.path });
-  let generatedArtifacts: Awaited<ReturnType<typeof synthesizeRecipeWithAgent>> | undefined;
-
-  const ensureGeneratedArtifacts = async () => {
-    if (!generatedArtifacts) {
-      generatedArtifacts = await synthesizeRecipeWithAgent({
-        document,
-        toolset,
-        now: now()
-      });
+    if (budget.maxPasses < 3) {
+      throw new Error('Agent orchestration slice requires at least three passes.');
     }
-    return generatedArtifacts;
-  };
 
-  const executePass = async <TResult>(
-    id: PassSummary<TResult>['id'],
-    label: string,
-    runner: () => TResult | Promise<TResult>,
-    notesFactory?: (result: TResult) => readonly string[]
-  ): Promise<PassSummary<TResult>> => {
-    const started = budgetGuard.beforePass(id);
-    toolset.resetUsageLog();
-    const result = await Promise.resolve(runner());
-    const completed = now().getTime();
-    const usage = mapUsageLog(toolset.getUsageLog());
-    budgetGuard.afterPass(id, completed, usage.length);
-    const notes = notesFactory ? [...notesFactory(result)] : [];
-    const status = id === 'pass-3-validation' && (result as DocumentValidationResult).status === 'fail' ? 'failure' : 'success';
-    return {
-      id,
-      label,
-      status,
-      startedAt: started,
-      completedAt: completed,
-      notes,
-      toolUsage: usage,
-      result
+    const ruleSet = await ruleRepository.getRuleSet({ domain: document.domain, path: document.path });
+    let generatedArtifacts: Awaited<ReturnType<typeof synthesizeRecipeWithAgent>> | undefined;
+
+    const ensureGeneratedArtifacts = async () => {
+      if (!generatedArtifacts) {
+        generatedArtifacts = await synthesizeRecipeWithAgent({
+          document,
+          toolset,
+          now: now()
+        });
+      }
+      return generatedArtifacts;
     };
-  };
 
-  const expectedSummary = await executePass<ExpectedDataSummary>(
-    'pass-1-expected-data',
-    ruleSet ? 'Collect stored expectations' : 'Seed expected data via agent workflow',
-    async () => {
-      if (ruleSet) {
-        return collectExpectedData({ ruleSet, toolset });
-      }
-      const artifacts = await ensureGeneratedArtifacts();
-      return artifacts.expected;
-    },
-    (result) =>
-      result.origin === 'agent'
-        ? ['Initialized target data using iterative agent loop']
-        : []
-  );
+    const executePass = async <TResult>(
+      id: PassSummary<TResult>['id'],
+      label: string,
+      runner: () => TResult | Promise<TResult>,
+      notesFactory?: (result: TResult) => readonly string[]
+    ): Promise<PassSummary<TResult>> => {
+      const started = budgetGuard.beforePass(id);
+      toolset.resetUsageLog();
+      const result = await Promise.resolve(runner());
+      const completed = now().getTime();
+      const usage = mapUsageLog(toolset.getUsageLog());
+      budgetGuard.afterPass(id, completed, usage.length);
+      const notes = notesFactory ? [...notesFactory(result)] : [];
+      const status = id === 'pass-3-validation' && (result as DocumentValidationResult).status === 'fail' ? 'failure' : 'success';
+      return {
+        id,
+        label,
+        status,
+        startedAt: started,
+        completedAt: completed,
+        notes,
+        toolUsage: usage,
+        result
+      };
+    };
 
-  const synthesisSummary = await executePass<RecipeSynthesisSummary>(
-    'pass-2-recipe-synthesis',
-    'Synthesize candidate recipe',
-    async () => {
-      if (ruleSet) {
-        return buildRecipeFromRuleSet({ ruleSet, now: now() });
-      }
-      const artifacts = await ensureGeneratedArtifacts();
-      return artifacts.synthesis;
-    },
-    (result) =>
-      result.origin === 'agent'
-        ? [
-            `Completed ${result.iterations.length} agent iterations`,
-            'Selectors refined directly against fetched document'
-          ]
-        : ['Sourced field selectors from configurable rules']
-  );
+    const expectedSummary = await executePass<ExpectedDataSummary>(
+      'pass-1-expected-data',
+      ruleSet ? 'Collect stored expectations' : 'Seed expected data via agent workflow',
+      async () => {
+        if (ruleSet) {
+          return collectExpectedData({ ruleSet, toolset });
+        }
+        const artifacts = await ensureGeneratedArtifacts();
+        return artifacts.expected;
+      },
+      (result) =>
+        result.origin === 'agent'
+          ? ['Initialized target data using iterative agent loop']
+          : []
+    );
 
-  const validationSummary = await executePass<DocumentValidationResult>(
-    'pass-3-validation',
-    'Validate candidate recipe',
-    () =>
-      validateRecipeAgainstDocument({
-        html: document.html,
-        recipe: synthesisSummary.result.recipe,
-        expected: expectedSummary.result.product
-      }),
-    (result) =>
-      result.stopReason ? [result.stopReason] : [`Document confidence ${(result.confidence * 100).toFixed(1)}%`]
-  );
+    const synthesisSummary = await executePass<RecipeSynthesisSummary>(
+      'pass-2-recipe-synthesis',
+      'Synthesize candidate recipe',
+      async () => {
+        if (ruleSet) {
+          return buildRecipeFromRuleSet({ ruleSet, now: now() });
+        }
+        const artifacts = await ensureGeneratedArtifacts();
+        return artifacts.synthesis;
+      },
+      (result) =>
+        result.origin === 'agent'
+          ? [
+              `Completed ${result.iterations.length} agent iterations`,
+              'Selectors refined directly against fetched document'
+            ]
+          : ['Sourced field selectors from configurable rules']
+    );
 
-  const completedAt = now().getTime();
+    const validationSummary = await executePass<DocumentValidationResult>(
+      'pass-3-validation',
+      'Validate candidate recipe',
+      () =>
+        validateRecipeAgainstDocument({
+          html: document.html,
+          recipe: synthesisSummary.result.recipe,
+          expected: expectedSummary.result.product
+        }),
+      (result) =>
+        result.stopReason ? [result.stopReason] : [`Document confidence ${(result.confidence * 100).toFixed(1)}%`]
+    );
 
-  const passes: OrchestrationResult['passes'] = [
-    expectedSummary,
-    synthesisSummary,
-    validationSummary
-  ];
+    const completedAt = now().getTime();
 
-  return {
-    startedAt: start,
-    completedAt,
-    budget,
-    expected: expectedSummary.result,
-    synthesis: synthesisSummary.result,
-    validation: validationSummary.result,
-    passes
-  };
+    const passes: OrchestrationResult['passes'] = [
+      expectedSummary,
+      synthesisSummary,
+      validationSummary
+    ];
+
+    return {
+      startedAt: start,
+      completedAt,
+      budget,
+      expected: expectedSummary.result,
+      synthesis: synthesisSummary.result,
+      validation: validationSummary.result,
+      passes
+    };
+  } catch (error) {
+    console.error('[Mercator][orchestrator] Agent orchestration failed.', {
+      document: `${document.domain}${document.path}`,
+      error: serializeError(error)
+    });
+    throw error;
+  }
 };
 
 export {
