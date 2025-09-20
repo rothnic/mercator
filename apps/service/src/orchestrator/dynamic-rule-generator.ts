@@ -1,9 +1,10 @@
-import { createTool } from '@mastra/core/tools';
+import { createTool, type ToolExecutionContext } from '@mastra/core/tools';
 import { load, type CheerioAPI } from 'cheerio';
 import { z } from 'zod';
 
 import {
   ProductSchema,
+  RecipeFieldIdSchema,
   RecipeSchema,
   getDefaultTolerance,
   type FieldRecipe,
@@ -13,7 +14,9 @@ import {
 import type { FixtureToolset, HtmlQueryMatch, HtmlQueryResult } from '@mercator/agent-tools';
 import type {
   AgentIterationLogEntry,
+  ExpectedFieldEvidence,
   ExpectedDataSummary,
+  RecipeEvidenceRow,
   RecipeSynthesisSummary
 } from '@mercator/core/agents';
 import { createRecipeAgent } from '../mastra/agents/recipe-agent.js';
@@ -127,25 +130,46 @@ const normalizeRegex = (pattern: RegExp | undefined): RegExp | undefined => {
   return new RegExp(pattern.source, flags);
 };
 
-interface HtmlElementNode {
+interface DomNode {
   readonly type?: string;
-  readonly name?: string;
-  readonly attribs?: Record<string, string | undefined>;
-  readonly parent?: HtmlElementNode | null;
-  readonly children?: readonly HtmlElementNode[];
+  readonly parent?: DomNode | null;
+  readonly children?: readonly unknown[];
 }
 
-const isTagNode = (node: HtmlElementNode | null | undefined): node is HtmlElementNode =>
-  Boolean(node && node.type === 'tag');
+interface ElementNode extends DomNode {
+  readonly type: 'tag';
+  readonly name?: string;
+  readonly attribs?: Record<string, string | undefined>;
+}
 
-const matchesSibling = (
-  node: HtmlElementNode | undefined,
-  name: string | undefined
-): node is HtmlElementNode => Boolean(node && node.type === 'tag' && node.name === name);
+interface TextNode extends DomNode {
+  readonly type: 'text';
+  readonly data?: string;
+}
 
-const buildCssPath = ($: CheerioAPI, element: HtmlElementNode): string => {
+const isTagNode = (node: unknown): node is ElementNode =>
+  Boolean(node && typeof node === 'object' && (node as { type?: unknown }).type === 'tag');
+
+const isTextNode = (node: unknown): node is TextNode =>
+  Boolean(node && typeof node === 'object' && (node as { type?: unknown }).type === 'text');
+
+const matchesSibling = (node: unknown, name: string | undefined): node is ElementNode =>
+  isTagNode(node) && node.name === name;
+
+const readNodeText = (node: unknown): string => {
+  if (isTextNode(node)) {
+    return (node.data ?? '').toString();
+  }
+  if (!isTagNode(node)) {
+    return '';
+  }
+  const children = Array.isArray(node.children) ? node.children : [];
+  return children.map((child) => readNodeText(child)).join('');
+};
+
+const buildCssPath = (element: ElementNode): string => {
   const segments: string[] = [];
-  let current: HtmlElementNode | null = element;
+  let current: ElementNode | null = element;
 
   while (isTagNode(current)) {
     const tagName = current.name ?? '';
@@ -153,7 +177,7 @@ const buildCssPath = ($: CheerioAPI, element: HtmlElementNode): string => {
       break;
     }
 
-    const attributes = current.attribs ?? {};
+    const attributes: Record<string, string | undefined> = current.attribs ?? {};
     let segment = tagName;
 
     const prioritizedAttribute = attributePriorities.find((attribute) => attributes[attribute]);
@@ -180,11 +204,12 @@ const buildCssPath = ($: CheerioAPI, element: HtmlElementNode): string => {
       }
     }
 
-    const parent = isTagNode(current.parent) ? current.parent : null;
+    const parentCandidate = current.parent;
+    const parent: ElementNode | null = isTagNode(parentCandidate) ? parentCandidate : null;
     if (parent && isTagNode(current) && current.name) {
       let ordinal = 0;
       let total = 0;
-      const children = (parent.children ?? []) as readonly HtmlElementNode[];
+      const children = Array.isArray(parent.children) ? parent.children : [];
       children.forEach((child) => {
         if (matchesSibling(child, current.name)) {
           total += 1;
@@ -282,7 +307,7 @@ interface ElementSelectionOptions {
 const selectElement = (
   $: CheerioAPI,
   options: ElementSelectionOptions
-): HtmlElementNode | undefined => {
+): ElementNode | undefined => {
   const tokens = (options.seeds ?? []).flatMap(toSearchTokens);
   const attributeHints = (options.attributeHints ?? []).map((hint) => hint.toLowerCase());
   const preferTags = new Set((options.preferTags ?? []).map((tag) => tag.toLowerCase()));
@@ -291,14 +316,14 @@ const selectElement = (
     : undefined;
   const pattern = normalizeRegex(options.textPattern);
 
-  const nodes = $('*').toArray() as HtmlElementNode[];
-  let best: { element: HtmlElementNode; score: number } | undefined;
+  const nodes = $('*').toArray();
+  let best: { element: ElementNode; score: number } | undefined;
 
   for (const node of nodes) {
     if (!isTagNode(node)) {
       continue;
     }
-    const element = node;
+    const element: ElementNode = node;
     const tagName = element.name?.toLowerCase();
     if (!tagName) {
       continue;
@@ -307,8 +332,7 @@ const selectElement = (
       continue;
     }
 
-    const selection = $(element);
-    const text = collapseWhitespace(selection.text() ?? '');
+    const text = collapseWhitespace(readNodeText(element));
     const normalizedText = text.toLowerCase();
 
     if (pattern && !pattern.test(text)) {
@@ -331,7 +355,7 @@ const selectElement = (
       score -= Math.min(lengthDiff, 60) * 0.05;
     }
 
-    const attributes = element.attribs ?? {};
+    const attributes: Record<string, string | undefined> = element.attribs ?? {};
     attributeHints.forEach((hint) => {
       Object.entries(attributes).forEach(([name, value]) => {
         const lowerName = name.toLowerCase();
@@ -430,7 +454,7 @@ const deriveSelector = async (
       allowPartialMatches: options.allowPartialMatches
     });
     if (element) {
-      const selector = buildCssPath($, element);
+      const selector = buildCssPath(element);
       const result = await toolset.html.query({
         selector,
         limit: options.limit ?? 5,
@@ -445,9 +469,20 @@ const deriveSelector = async (
   throw new Error(`Agent workflow failed to derive a selector for ${options.field}.`);
 };
 
+type AgentExpectedSummary = ExpectedDataSummary & {
+  readonly origin: 'agent';
+  readonly supportingEvidence: readonly ExpectedFieldEvidence[];
+};
+
+type AgentSynthesisSummary = RecipeSynthesisSummary & {
+  readonly origin: 'agent';
+  readonly evidenceMatrix: readonly RecipeEvidenceRow[];
+  readonly iterations: readonly AgentIterationLogEntry[];
+};
+
 export interface AgentSynthesisArtifacts {
-  readonly expected: ExpectedDataSummary;
-  readonly synthesis: RecipeSynthesisSummary;
+  readonly expected: AgentExpectedSummary;
+  readonly synthesis: AgentSynthesisSummary;
 }
 
 const generateAgentArtifacts = async (options: {
@@ -877,21 +912,25 @@ const generateAgentArtifacts = async (options: {
     })
   });
 
-  const expected: ExpectedDataSummary = {
-    fixtureId: `${document.domain}${document.path}`,
-    product: targetProduct,
-    ocrTranscript: ocrResult.lines,
-    supportingEvidence: Array.from(evidenceMap.entries()).map(([fieldId, entry]) => ({
+  const supportingEvidence: ExpectedFieldEvidence[] = Array.from(evidenceMap.entries()).map(
+    ([fieldId, entry]) => ({
       fieldId,
       source: 'html',
       snippet: entry.snippet,
       confidence: entry.confidence,
       chunkId: entry.chunkId
-    })),
+    })
+  );
+
+  const expected: AgentSynthesisArtifacts['expected'] = {
+    fixtureId: `${document.domain}${document.path}`,
+    product: targetProduct,
+    ocrTranscript: ocrResult.lines,
+    supportingEvidence,
     origin: 'agent'
   };
 
-  const evidenceMatrix = fields.map((field) => {
+  const evidenceMatrix: RecipeEvidenceRow[] = fields.map((field) => {
     const evidence = evidenceMap.get(field.fieldId);
     return {
       fieldId: field.fieldId,
@@ -902,7 +941,7 @@ const generateAgentArtifacts = async (options: {
     };
   });
 
-  const synthesis: RecipeSynthesisSummary = {
+  const synthesis: AgentSynthesisArtifacts['synthesis'] = {
     recipe,
     evidenceMatrix,
     iterations,
@@ -913,7 +952,7 @@ const generateAgentArtifacts = async (options: {
 };
 
 const recipeEvidenceRowSchema = z.object({
-  fieldId: z.string(),
+  fieldId: RecipeFieldIdSchema,
   source: z.enum(['html', 'markdown', 'vision']),
   selectors: z.array(z.string()),
   chunkId: z.string().optional(),
@@ -926,7 +965,7 @@ const iterationLogSchema = z.object({
   updatedTargetData: ProductSchema.partial(),
   updatedSelectors: z.array(
     z.object({
-      fieldId: z.string(),
+      fieldId: RecipeFieldIdSchema,
       selector: z.string(),
       notes: z.string().optional()
     })
@@ -940,7 +979,7 @@ const expectedSummarySchema = z.object({
   ocrTranscript: z.array(z.string()),
   supportingEvidence: z.array(
     z.object({
-      fieldId: z.string(),
+      fieldId: RecipeFieldIdSchema,
       source: z.enum(['html', 'vision', 'markdown']),
       snippet: z.string(),
       confidence: z.number(),
@@ -975,7 +1014,8 @@ const createRecipeGenerationTool = (
     description: 'Analyzes the fetched document and synthesizes recipe artifacts using deterministic heuristics.',
     inputSchema: z.object({}).optional(),
     outputSchema: recipeAgentOutputSchema,
-    async execute() {
+    async execute(context: ToolExecutionContext | undefined) {
+      void context;
       const artifacts = await generateAgentArtifacts(options);
       onGenerated(artifacts);
       return artifacts;
@@ -995,9 +1035,9 @@ export const synthesizeRecipeWithAgent = async (options: {
     cachedArtifacts = artifacts;
   });
   agent.__setTools({ generate_recipe: recipeTool });
-  // Run the deterministic tool once so the synthesized artifacts are available even when
-  // the mock model skips issuing an explicit tool call during tests.
-  await recipeTool.execute({ context: {} } as never);
+  // Run the deterministic generator once so artifacts are available even if the mock model skips
+  // issuing an explicit tool call during tests.
+  cachedArtifacts = await generateAgentArtifacts({ document, toolset, now });
 
   const response = await agent.generate(
     [
