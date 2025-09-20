@@ -955,7 +955,7 @@ const generateAgentArtifacts = async (options: {
 const recipeEvidenceRowSchema = z.object({
   fieldId: RecipeFieldIdSchema,
   source: z.enum(['html', 'markdown', 'vision']),
-  selectors: z.array(z.string()),
+  selectors: z.array(z.string()).readonly(),
   chunkId: z.string().optional(),
   notes: z.string().optional()
 });
@@ -964,36 +964,40 @@ const iterationLogSchema = z.object({
   iteration: z.number(),
   agentThought: z.string(),
   updatedTargetData: ProductSchema.partial(),
-  updatedSelectors: z.array(
-    z.object({
-      fieldId: RecipeFieldIdSchema,
-      selector: z.string(),
-      notes: z.string().optional()
-    })
-  ),
+  updatedSelectors: z
+    .array(
+      z.object({
+        fieldId: RecipeFieldIdSchema,
+        selector: z.string(),
+        notes: z.string().optional()
+      })
+    )
+    .readonly(),
   scrapedSamples: z.record(z.unknown())
 });
 
 const expectedSummarySchema = z.object({
   fixtureId: z.string(),
   product: ProductSchema,
-  ocrTranscript: z.array(z.string()),
-  supportingEvidence: z.array(
-    z.object({
-      fieldId: RecipeFieldIdSchema,
-      source: z.enum(['html', 'vision', 'markdown']),
-      snippet: z.string(),
-      confidence: z.number(),
-      chunkId: z.string().optional()
-    })
-  ),
+  ocrTranscript: z.array(z.string()).readonly(),
+  supportingEvidence: z
+    .array(
+      z.object({
+        fieldId: RecipeFieldIdSchema,
+        source: z.enum(['html', 'vision', 'markdown']),
+        snippet: z.string(),
+        confidence: z.number(),
+        chunkId: z.string().optional()
+      })
+    )
+    .readonly(),
   origin: z.literal('agent')
 });
 
 const recipeSynthesisSchema = z.object({
   recipe: RecipeSchema,
-  evidenceMatrix: z.array(recipeEvidenceRowSchema),
-  iterations: z.array(iterationLogSchema),
+  evidenceMatrix: z.array(recipeEvidenceRowSchema).readonly(),
+  iterations: z.array(iterationLogSchema).readonly(),
   origin: z.literal('agent')
 });
 
@@ -1032,8 +1036,9 @@ const createRecipeGenerationTool = (
       void context;
       void executionOptions;
       const artifacts = await generateAgentArtifacts(options);
-      onGenerated(artifacts);
-      return artifacts;
+      const validated: AgentSynthesisArtifacts = recipeAgentOutputSchema.parse(artifacts);
+      onGenerated(validated);
+      return validated;
     }
   });
 
@@ -1079,13 +1084,15 @@ export const synthesizeRecipeWithAgent = async (options: {
 
   const structured = (response as { experimental_output?: unknown }).experimental_output;
   if (structured) {
-    return recipeAgentOutputSchema.parse(structured);
+    const parsed: AgentSynthesisArtifacts = recipeAgentOutputSchema.parse(structured);
+    return parsed;
   }
 
   if (response.text) {
     try {
       const parsed = JSON.parse(response.text);
-      return recipeAgentOutputSchema.parse(parsed);
+      const validated: AgentSynthesisArtifacts = recipeAgentOutputSchema.parse(parsed);
+      return validated;
     } catch (error) {
       throw new Error(`Recipe agent returned non-JSON response: ${String(error)}`);
     }

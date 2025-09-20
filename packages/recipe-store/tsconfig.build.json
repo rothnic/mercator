@@ -8,8 +8,8 @@
     "outDir": "dist",
     "rootDir": "src",
     "paths": {
-      "@mercator/core": ["../core/dist/index.d.ts"],
-      "@mercator/core/*": ["../core/dist/*"]
+      "@mercator/core": ["./packages/core/dist/index.d.ts"],
+      "@mercator/core/*": ["./packages/core/dist/*"]
     }
   },
   "include": ["src/**/*.ts"],

@@ -8,8 +8,10 @@
     "outDir": "dist",
     "rootDir": "src",
     "paths": {
-      "@mercator/fixtures": ["../fixtures/dist/index.d.ts"],
-      "@mercator/fixtures/*": ["../fixtures/dist/*"]
+      "@mercator/core": ["./packages/core/dist/index.d.ts"],
+      "@mercator/core/*": ["./packages/core/dist/*"],
+      "@mercator/fixtures": ["./packages/fixtures/dist/index.d.ts"],
+      "@mercator/fixtures/*": ["./packages/fixtures/dist/*"]
     }
   },
   "include": ["src/**/*.ts"],

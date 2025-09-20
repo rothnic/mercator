@@ -1,5 +1,5 @@
 import { load, type Cheerio, type CheerioAPI } from 'cheerio';
-import type { AnyNode, Element } from 'domhandler';
+import { isTag, type AnyNode, type Element } from 'domhandler';
 
 import {
   listProductSimpleHtmlChunks,
@@ -130,16 +130,14 @@ const createUsageRecorder = () => {
 
 const collapseWhitespace = (value: string): string => value.replace(/\s+/g, ' ').trim();
 
-const TAG_NODE_TYPE: Element['type'] = 'tag';
-
 const isElementNode = (node: AnyNode | null | undefined): node is Element =>
-  node !== null && node !== undefined && node.type === TAG_NODE_TYPE;
+  node !== null && node !== undefined && isTag(node);
 
 const buildCssPath = ($: CheerioAPI, node: Element): string => {
   const segments: string[] = [];
-  let current: Element | undefined | null = node;
+  let current: Element | null = node;
 
-  while (current && current.type === TAG_NODE_TYPE) {
+  while (isElementNode(current)) {
     let segment = current.name;
     if (!segment) {
       break;
@@ -161,7 +159,7 @@ const buildCssPath = ($: CheerioAPI, node: Element): string => {
       }
     }
 
-    const parent: Element | undefined = isElementNode(current.parent) ? current.parent : undefined;
+    const parent: Element | null = isElementNode(current.parent) ? current.parent : null;
     if (parent) {
       const siblings = (parent.children as AnyNode[]).filter(
         (child): child is Element => isElementNode(child) && child.name === current?.name
@@ -173,7 +171,7 @@ const buildCssPath = ($: CheerioAPI, node: Element): string => {
     }
 
     segments.push(segment);
-    current = parent ?? undefined;
+    current = parent;
   }
 
   return segments.reverse().join(' > ');
