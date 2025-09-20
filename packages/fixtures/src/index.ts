@@ -32,8 +32,8 @@ export interface ProductSimpleFixture {
   };
 }
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const FIXTURE_ROOT = resolve(__dirname, '../../../fixtures');
+const moduleDirname = dirname(fileURLToPath(import.meta.url));
+const FIXTURE_ROOT = resolve(moduleDirname, '../../../fixtures');
 
 const HTML_CHUNKS: HtmlChunkMetadata[] = [
   {

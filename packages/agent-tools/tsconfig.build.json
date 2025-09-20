@@ -6,7 +6,11 @@
     "declarationMap": true,
     "emitDeclarationOnly": false,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "paths": {
+      "@mercator/fixtures": ["../fixtures/dist/index.d.ts"],
+      "@mercator/fixtures/*": ["../fixtures/dist/*"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]

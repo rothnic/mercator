@@ -6,7 +6,11 @@
     "declarationMap": true,
     "emitDeclarationOnly": false,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "paths": {
+      "@mercator/core": ["../core/dist/index.d.ts"],
+      "@mercator/core/*": ["../core/dist/*"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]
