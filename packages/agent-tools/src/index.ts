@@ -1,5 +1,4 @@
 import { load, type Cheerio, type CheerioAPI } from 'cheerio';
-import { ElementType } from 'domelementtype';
 import type { AnyNode, Element } from 'domhandler';
 
 import {
@@ -131,14 +130,16 @@ const createUsageRecorder = () => {
 
 const collapseWhitespace = (value: string): string => value.replace(/\s+/g, ' ').trim();
 
+const TAG_NODE_TYPE: Element['type'] = 'tag';
+
 const isElementNode = (node: AnyNode | null | undefined): node is Element =>
-  node !== null && node !== undefined && node.type === ElementType.Tag;
+  node !== null && node !== undefined && node.type === TAG_NODE_TYPE;
 
 const buildCssPath = ($: CheerioAPI, node: Element): string => {
   const segments: string[] = [];
   let current: Element | undefined | null = node;
 
-  while (current && current.type === ElementType.Tag) {
+  while (current && current.type === TAG_NODE_TYPE) {
     let segment = current.name;
     if (!segment) {
       break;

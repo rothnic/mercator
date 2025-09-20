@@ -172,12 +172,13 @@ const buildCssPath = (element: ElementNode): string => {
   let current: ElementNode | null = element;
 
   while (isTagNode(current)) {
-    const tagName = current.name ?? '';
+    const elementNode: ElementNode = current;
+    const tagName = elementNode.name ?? '';
     if (!tagName) {
       break;
     }
 
-    const attributes: Record<string, string | undefined> = current.attribs ?? {};
+    const attributes: Record<string, string | undefined> = elementNode.attribs ?? {};
     let segment = tagName;
 
     const prioritizedAttribute = attributePriorities.find((attribute) => attributes[attribute]);
@@ -204,16 +205,16 @@ const buildCssPath = (element: ElementNode): string => {
       }
     }
 
-    const parentCandidate = current.parent;
+    const parentCandidate: DomNode | null | undefined = elementNode.parent;
     const parent: ElementNode | null = isTagNode(parentCandidate) ? parentCandidate : null;
-    if (parent && isTagNode(current) && current.name) {
+    if (parent && elementNode.name) {
       let ordinal = 0;
       let total = 0;
       const children = Array.isArray(parent.children) ? parent.children : [];
       children.forEach((child) => {
-        if (matchesSibling(child, current.name)) {
+        if (matchesSibling(child, elementNode.name)) {
           total += 1;
-          if (child === current) {
+          if (child === elementNode) {
             ordinal = total;
           }
         }
@@ -912,15 +913,15 @@ const generateAgentArtifacts = async (options: {
     })
   });
 
-  const supportingEvidence: ExpectedFieldEvidence[] = Array.from(evidenceMap.entries()).map(
-    ([fieldId, entry]) => ({
-      fieldId,
-      source: 'html',
-      snippet: entry.snippet,
-      confidence: entry.confidence,
-      chunkId: entry.chunkId
-    })
-  );
+  const supportingEvidence: readonly ExpectedFieldEvidence[] = Array.from(
+    evidenceMap.entries()
+  ).map(([fieldId, entry]): ExpectedFieldEvidence => ({
+    fieldId,
+    source: 'html',
+    snippet: entry.snippet,
+    confidence: entry.confidence,
+    chunkId: entry.chunkId
+  }));
 
   const expected: AgentSynthesisArtifacts['expected'] = {
     fixtureId: `${document.domain}${document.path}`,
@@ -930,11 +931,11 @@ const generateAgentArtifacts = async (options: {
     origin: 'agent'
   };
 
-  const evidenceMatrix: RecipeEvidenceRow[] = fields.map((field) => {
+  const evidenceMatrix: readonly RecipeEvidenceRow[] = fields.map((field): RecipeEvidenceRow => {
     const evidence = evidenceMap.get(field.fieldId);
     return {
       fieldId: field.fieldId,
-      source: 'html' as const,
+      source: 'html',
       selectors: field.selectorSteps.map((step) => step.value),
       chunkId: evidence?.chunkId,
       notes: field.selectorSteps[0]?.note
@@ -996,10 +997,22 @@ const recipeSynthesisSchema = z.object({
   origin: z.literal('agent')
 });
 
+const recipeToolInputSchema = z.object({}).optional();
+
 const recipeAgentOutputSchema = z.object({
   expected: expectedSummarySchema,
   synthesis: recipeSynthesisSchema
 });
+
+type RecipeGenerationTool = ReturnType<
+  typeof createTool<
+    typeof recipeToolInputSchema,
+    typeof recipeAgentOutputSchema,
+    ToolExecutionContext<typeof recipeToolInputSchema>
+  >
+>;
+
+type RecipeGenerationExecutor = NonNullable<RecipeGenerationTool['execute']>;
 
 const createRecipeGenerationTool = (
   options: {
@@ -1012,10 +1025,12 @@ const createRecipeGenerationTool = (
   createTool({
     id: 'generate_recipe',
     description: 'Analyzes the fetched document and synthesizes recipe artifacts using deterministic heuristics.',
-    inputSchema: z.object({}).optional(),
+    inputSchema: recipeToolInputSchema,
     outputSchema: recipeAgentOutputSchema,
-    async execute(context: ToolExecutionContext | undefined) {
+    async execute(...args: Parameters<RecipeGenerationExecutor>) {
+      const [context, executionOptions] = args;
       void context;
+      void executionOptions;
       const artifacts = await generateAgentArtifacts(options);
       onGenerated(artifacts);
       return artifacts;
