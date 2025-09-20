@@ -11,6 +11,16 @@
     "strict": true,
     "types": ["node"],
     "noEmit": true,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "paths": {
+      "@mercator/agent-tools": ["./packages/agent-tools/src/index.ts"],
+      "@mercator/agent-tools/*": ["./packages/agent-tools/src/*"],
+      "@mercator/core": ["./packages/core/src/index.ts"],
+      "@mercator/core/*": ["./packages/core/src/*"],
+      "@mercator/fixtures": ["./packages/fixtures/src/index.ts"],
+      "@mercator/fixtures/*": ["./packages/fixtures/src/*"],
+      "@mercator/recipe-store": ["./packages/recipe-store/src/index.ts"],
+      "@mercator/recipe-store/*": ["./packages/recipe-store/src/*"]
+    }
   }
 }
