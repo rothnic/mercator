@@ -82,6 +82,7 @@ Document open questions or follow-up work in `Notes` fields or create new tasks 
 
 ## Agent Workflow Overview
 
+
 - The Mastra AgentNetwork orchestrates four specialists: ingestion (Firecrawl scrape + workspace registration), target modeling (Product draft synthesis), selector design (rule lab iteration), and evaluation (rule vs target comparison).
 - Each specialist works against the shared document workspace; selectors and evaluations can be replayed without re-scraping as long as the workspace remains in memory.
 - Initialization runs automatically after fetching a document. OCR seeding and HTML probes provide a starting target data set without requiring manual confirmation.

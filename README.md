@@ -75,3 +75,5 @@ The orchestration slice executes three passes against that workspace. When no re
 Generated recipes persist as drafts keyed by domain/path and can be promoted to stable for reuse. Once promoted, `/parse` and the CLI reuse the stored recipe without rerunning the agent, while missing recipes return clear errors so the caller can trigger generation.
 
 The MVP still focuses on deterministic fixture data for assertions. The reviewer UI, broader observability, canarying, richer OCR of screenshots, and other quality-of-life improvements continue to live in Iteration I02.
+
+The three-pass workflow then produces reusable recipes:

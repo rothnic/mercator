@@ -216,6 +216,7 @@ export const runAgentOrchestrationSlice = async (
       synthesisSummary,
       validationSummary
     ];
+
     return {
       startedAt: start,
       completedAt,
@@ -223,7 +224,11 @@ export const runAgentOrchestrationSlice = async (
       expected: expectedSummary.result,
       synthesis: synthesisSummary.result,
       validation: validationSummary.result,
-      passes
+      passes: [
+        expectedSummary as PassSummary<ExpectedDataSummary>,
+        synthesisSummary as PassSummary<RecipeSynthesisSummary>,
+        validationSummary as PassSummary<DocumentValidationResult>
+      ]
     };
   } catch (error) {
     console.error('[Mercator][orchestrator] Agent orchestration failed.', {
