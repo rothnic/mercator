@@ -11,11 +11,20 @@ import {
   type DocumentRuleRepository
 } from '../orchestrator/rule-repository.js';
 import type { RecipeStore, StoredRecipe } from '@mercator/recipe-store';
+import {
+  ingestDocument,
+  createFirecrawlClientFromEnv,
+  type FirecrawlClient,
+  type IngestedDocument
+} from '../ingestion/index.js';
+import { createConsoleLogger, type ServiceLogger } from '../logger.js';
 
 export interface RecipeWorkflowServiceOptions {
   readonly store: RecipeStore;
   readonly ruleRepository?: DocumentRuleRepository;
   readonly now?: () => Date;
+  readonly firecrawlClient?: FirecrawlClient;
+  readonly logger?: ServiceLogger;
 }
 
 export interface GenerateRecipeOptions {
@@ -62,11 +71,15 @@ export class RecipeWorkflowService {
   private readonly store: RecipeStore;
   private readonly ruleRepository: DocumentRuleRepository;
   private readonly now: () => Date;
+  private readonly firecrawl?: FirecrawlClient;
+  private readonly logger: ServiceLogger;
 
   constructor(options: RecipeWorkflowServiceOptions) {
     this.store = options.store;
     this.ruleRepository = options.ruleRepository ?? createDefaultRuleRepository();
     this.now = options.now ?? (() => new Date());
+    this.firecrawl = options.firecrawlClient ?? createFirecrawlClientFromEnv();
+    this.logger = options.logger ?? createConsoleLogger();
   }
 
   private assertDocumentSource(name: string, options: { url?: string | undefined; fixtureId?: FixtureId | undefined; htmlPath?: string | undefined }) {
@@ -80,49 +93,47 @@ export class RecipeWorkflowService {
     }
   }
 
-  private async fetchDocumentFromUrl(rawUrl: string): Promise<DocumentSnapshot> {
-    let parsed: URL;
-    try {
-      parsed = new URL(rawUrl);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Invalid document URL: ${message}`);
-    }
-
-    const response = await fetch(parsed.toString(), {
-      headers: { accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1' }
+  private async ingestDocumentFromUrl(rawUrl: string): Promise<IngestedDocument> {
+    const ingestion = await ingestDocument({
+      url: rawUrl,
+      firecrawlClient: this.firecrawl,
+      logger: this.logger
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch document ${parsed.toString()}: ${response.status} ${response.statusText}`);
+    if (ingestion.ocrTranscript.length === 0) {
+      this.logger.warn('Ingestion returned an empty OCR transcript.', {
+        url: rawUrl,
+        source: ingestion.source
+      });
     }
 
-    const html = await response.text();
-    return {
-      domain: parsed.hostname,
-      path: parsed.pathname ? normalizePath(parsed.pathname) : '/',
-      html
-    };
+    return ingestion;
   }
 
-  private async createToolsetForDocument(document: DocumentSnapshot): Promise<FixtureToolset> {
+  private async createToolsetForDocument(
+    document: DocumentSnapshot,
+    ingestion?: Pick<IngestedDocument, 'ocrTranscript' | 'markdown' | 'htmlChunks'>
+  ): Promise<FixtureToolset> {
     const ruleSet = await this.ruleRepository.getRuleSet({
       domain: document.domain,
       path: document.path
     });
 
-    if (!ruleSet) {
-      return createDocumentToolset({
-        documentId: `${document.domain}${document.path}`,
-        html: document.html
-      });
-    }
+    const transcript =
+      ruleSet?.providedOcrTranscript && ruleSet.providedOcrTranscript.length > 0
+        ? ruleSet.providedOcrTranscript
+        : ingestion?.ocrTranscript;
 
-    const chunkMetadata: readonly DocumentHtmlChunkDefinition[] | undefined = ruleSet.htmlChunks;
+    const chunkMetadata: readonly DocumentHtmlChunkDefinition[] | undefined =
+      ruleSet?.htmlChunks ?? ingestion?.htmlChunks;
+
+    const documentId = ruleSet?.id ?? `${document.domain}${document.path}`;
+
     return createDocumentToolset({
-      documentId: ruleSet.id,
+      documentId,
       html: document.html,
-      ocrTranscript: ruleSet.providedOcrTranscript,
+      markdown: ingestion?.markdown,
+      ocrTranscript: transcript,
       chunkMetadata
     });
   }
@@ -142,8 +153,14 @@ export class RecipeWorkflowService {
 
     const documentUrl = options.url?.trim();
     if (documentUrl) {
-      document = await this.fetchDocumentFromUrl(documentUrl);
-      toolset = await this.createToolsetForDocument(document);
+      const ingestion = await this.ingestDocumentFromUrl(documentUrl);
+      document = ingestion.document;
+      toolset = await this.createToolsetForDocument(document, ingestion);
+      this.logger.info('Prepared agent toolset for ingested URL.', {
+        url: documentUrl,
+        source: ingestion.source,
+        transcriptLength: ingestion.ocrTranscript.length
+      });
     } else {
       const fixtureId = options.fixtureId ?? 'product-simple';
       const fixture = getFixtureDefinition(fixtureId);
@@ -209,7 +226,8 @@ export class RecipeWorkflowService {
         );
       }
 
-      document = await this.fetchDocumentFromUrl(parsed.toString());
+      const ingestion = await this.ingestDocumentFromUrl(parsed.toString());
+      document = ingestion.document;
     } else {
       document = await readFixtureDocument(options.fixtureId ?? 'product-simple', options.htmlPath);
       stable = await this.findStableRecipeForDocument(document.domain, document.path);

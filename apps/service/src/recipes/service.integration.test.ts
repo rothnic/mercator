@@ -14,17 +14,34 @@ import { createServer } from '../http/server.js';
 import { createProductSimpleRuleSet } from '../orchestrator/__fixtures__/product-simple.js';
 import { createInMemoryRuleRepository } from '../orchestrator/rule-repository.js';
 import { RecipeWorkflowService } from './service.js';
+import type { FirecrawlClient } from '../ingestion/index.js';
 
 describe('RecipeWorkflowService integration', () => {
   let directory: string;
   let service: RecipeWorkflowService;
   let server: ReturnType<typeof createServer>;
+  let firecrawl: FirecrawlClient;
+  let fetchDocumentMock: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     directory = await mkdtemp(join(tmpdir(), 'mercator-recipes-'));
     const store = new LocalFileSystemRecipeStore({ directory });
     const ruleRepository = createInMemoryRuleRepository([createProductSimpleRuleSet()]);
-    service = new RecipeWorkflowService({ store, ruleRepository });
+    const fixture = loadProductSimpleFixture();
+    fetchDocumentMock = vi.fn(() =>
+      Promise.resolve({
+        html: fixture.html,
+        markdown: fixture.markdown,
+        text: fixture.markdown,
+        ocrTranscript: fixture.expected.ocrTranscript,
+        screenshotBase64: fixture.screenshot.toString('base64'),
+        htmlChunks: fixture.expected.htmlChunks
+      })
+    );
+    firecrawl = {
+      fetchDocument: fetchDocumentMock
+    };
+    service = new RecipeWorkflowService({ store, ruleRepository, firecrawlClient: firecrawl });
     server = createServer({ service });
   });
 
@@ -36,10 +53,6 @@ describe('RecipeWorkflowService integration', () => {
 
   it('returns an error when parsing a URL without an existing stable recipe', async () => {
     const url = 'https://demo.mercator.sh/products/precision-pour-over-kettle';
-    const fixture = loadProductSimpleFixture();
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockImplementation(() => Promise.resolve(new Response(fixture.html, { status: 200 })));
 
     const response = await server.inject({
       method: 'POST',
@@ -50,7 +63,7 @@ describe('RecipeWorkflowService integration', () => {
     expect(response.statusCode).toBe(500);
     const body = response.json();
     expect(body).toMatchObject({ error: expect.stringContaining('No stable recipe available') });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchDocumentMock).not.toHaveBeenCalled();
   });
 
   it('generates, promotes, and parses a recipe using fixture HTML path', async () => {
@@ -114,12 +127,7 @@ describe('RecipeWorkflowService integration', () => {
   });
 
   it('generates, promotes, and parses a recipe using a fetched URL', async () => {
-    const fixture = loadProductSimpleFixture();
     const url = 'https://demo.mercator.sh/products/precision-pour-over-kettle';
-
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockImplementation(() => Promise.resolve(new Response(fixture.html, { status: 200 })));
 
     const GenerateResponseSchema = z.object({ recipeId: z.string() }).passthrough();
     const generateResponse = await server.inject({
@@ -130,7 +138,7 @@ describe('RecipeWorkflowService integration', () => {
     expect(generateResponse.statusCode).toBe(200);
     const generateBody = GenerateResponseSchema.parse(generateResponse.json());
 
-    expect(fetchMock).toHaveBeenCalledWith(url, expect.any(Object));
+    expect(fetchDocumentMock).toHaveBeenCalledWith(url);
 
     const stdoutChunks: string[] = [];
     const cli = createCli({
@@ -169,6 +177,6 @@ describe('RecipeWorkflowService integration', () => {
     const parseBody = ParseResponseSchema.parse(parseResponse.json());
 
     expect(parseBody.product.title).toContain('Precision');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchDocumentMock).toHaveBeenCalledTimes(2);
   });
 });
