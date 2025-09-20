@@ -1,5 +1,5 @@
 import { load, type Cheerio, type CheerioAPI } from 'cheerio';
-import { isTag, type AnyNode, type Element } from 'domhandler';
+import type { AnyNode, Element } from 'domhandler';
 
 import {
   listProductSimpleHtmlChunks,
@@ -130,8 +130,10 @@ const createUsageRecorder = () => {
 
 const collapseWhitespace = (value: string): string => value.replace(/\s+/g, ' ').trim();
 
+const ELEMENT_NODE_TYPE = 1 satisfies Element['nodeType'];
+
 const isElementNode = (node: AnyNode | null | undefined): node is Element =>
-  node !== null && node !== undefined && isTag(node);
+  node !== null && node !== undefined && node.nodeType === ELEMENT_NODE_TYPE;
 
 const buildCssPath = ($: CheerioAPI, node: Element): string => {
   const segments: string[] = [];
