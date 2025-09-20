@@ -145,7 +145,10 @@ export const runAgentOrchestrationSlice = async (
       const usage = mapUsageLog(toolset.getUsageLog());
       budgetGuard.afterPass(id, completed, usage.length);
       const notes = notesFactory ? [...notesFactory(result)] : [];
-      const status = id === 'pass-3-validation' && (result as DocumentValidationResult).status === 'fail' ? 'failure' : 'success';
+      const status =
+        id === 'pass-3-validation' && (result as DocumentValidationResult).status === 'fail'
+          ? 'failure'
+          : 'success';
       return {
         id,
         label,
@@ -213,7 +216,6 @@ export const runAgentOrchestrationSlice = async (
       synthesisSummary,
       validationSummary
     ];
-
     return {
       startedAt: start,
       completedAt,

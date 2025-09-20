@@ -71,6 +71,7 @@ Priority is ascending within each feature. Always complete lower-numbered tasks 
 ## Acceptance Criteria
 
 - Given a product URL with no stored rules, the workflow service can fetch the document, run orchestration, and persist a draft recipe with selectors for the required product fields. Selector synthesis must leverage OCR/text heuristics rather than fixture-specific selector constants so the workflow applies to arbitrary pages.
+- URL ingestion relies on Firecrawl when credentials are available, capturing HTML, markdown, and screenshot-derived transcripts; failures are logged and the service transparently falls back to direct HTML fetches so manual testing can continue without the external dependency.
 - The Mastra `recipeAgent` must execute the `generate_recipe` tool to produce expected data and selectors, ensuring the agent workflow runs through the shared tool surface rather than inlined heuristics.
 - During generation the agent loop records iteration logs that show how the target data and selectors evolved until validation succeeded.
 - Once a recipe is promoted to stable, `/parse` and the CLI select the matching recipe for the requested domain/path and execute it without invoking the agent slice.
@@ -83,4 +84,6 @@ Document open questions or follow-up work in `Notes` fields or create new tasks 
 
 - The Mastra AgentNetwork orchestrates four specialists: ingestion (Firecrawl scrape + workspace registration), target modeling (Product draft synthesis), selector design (rule lab iteration), and evaluation (rule vs target comparison).
 - Each specialist works against the shared document workspace; selectors and evaluations can be replayed without re-scraping as long as the workspace remains in memory.
+- Initialization runs automatically after fetching a document. OCR seeding and HTML probes provide a starting target data set without requiring manual confirmation.
+- The agent iteratively refines selectors and target data, emitting an iteration log that records the agent’s reasoning, selector updates, and scraped samples after each pass.
 - Workflow consumers must remain responsive: downstream UI work will expose cancel controls, iteration batching, and human-in-the-loop feedback before promotion.

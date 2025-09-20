@@ -461,7 +461,11 @@ const generateAgentArtifacts = async (options: {
   const $ = load(document.html);
   const ocrResult = await toolset.vision.readOcr();
   await toolset.html.listChunks();
-
+  if (ocrResult.lines.length === 0) {
+    console.warn('[Mercator][recipe-agent] Received empty OCR transcript; falling back to HTML-driven heuristics.', {
+      document: `${document.domain}${document.path}`
+    });
+  }
   const evidenceMap = new Map<RecipeFieldId, EvidenceEntry>();
   const fieldRecipes = new Map<RecipeFieldId, FieldRecipe>();
   let partialTarget: Partial<Product> = {};
