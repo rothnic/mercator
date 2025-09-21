@@ -89,9 +89,57 @@ export interface DocumentWorkspaceSnapshot {
 }
 
 const workspaces = new Map<string, DocumentWorkspaceInternal>();
+const workspaceAliases = new Map<string, string>();
+
+const normalizeAlias = (alias: string): string => alias.trim().toLowerCase();
+
+const recordWorkspaceAlias = (alias: string, workspaceId: string): void => {
+  if (!alias) {
+    return;
+  }
+  workspaceAliases.set(normalizeAlias(alias), workspaceId);
+};
+
+const resolveWorkspaceId = (workspaceId: string): string => {
+  const normalized = normalizeAlias(workspaceId);
+  const aliasTarget = workspaceAliases.get(normalized);
+  if (aliasTarget) {
+    return aliasTarget;
+  }
+
+  if (workspaces.has(workspaceId)) {
+    return workspaceId;
+  }
+
+  if (workspaces.size === 1) {
+    const [onlyId] = workspaces.keys();
+    if (onlyId) {
+      recordWorkspaceAlias(workspaceId, onlyId);
+      return onlyId;
+    }
+  }
+
+  return workspaceId;
+};
+
+const registerDefaultAliases = (workspaceId: string): void => {
+  const defaults = [
+    'default',
+    'workspace_0',
+    'workspace-0',
+    'workspace0',
+    'ingestion_workspace',
+    'ingestion-workspace',
+    'latest',
+    'current'
+  ];
+  defaults.forEach((alias) => recordWorkspaceAlias(alias, workspaceId));
+  recordWorkspaceAlias(workspaceId, workspaceId);
+};
 
 const assertWorkspace = (workspaceId: string): DocumentWorkspaceInternal => {
-  const workspace = workspaces.get(workspaceId);
+  const resolvedId = resolveWorkspaceId(workspaceId);
+  const workspace = workspaces.get(resolvedId);
   if (!workspace) {
     throw new Error(`Document workspace ${workspaceId} does not exist.`);
   }
@@ -238,6 +286,7 @@ export const registerDocumentWorkspace = (options: RegisterDocumentOptions): Doc
     rules: new Map()
   };
   workspaces.set(id, workspace);
+  registerDefaultAliases(id);
   return toSnapshot(workspace);
 };
 
