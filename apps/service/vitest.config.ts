@@ -12,6 +12,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@mercator/core': resolve(__dirname, '../../packages/core/src/index.ts'),
+      '@mercator/core/agents': resolve(__dirname, '../../packages/core/src/agents/index.ts'),
+      '@mercator/core/tolerances': resolve(__dirname, '../../packages/core/src/tolerances.ts'),
+      '@mercator/core/transforms': resolve(__dirname, '../../packages/core/src/transforms.ts'),
       '@mercator/fixtures': resolve(__dirname, '../../packages/fixtures/src/index.ts'),
       '@mercator/agent-tools': resolve(__dirname, '../../packages/agent-tools/src/index.ts'),
       '@mercator/recipe-store': resolve(__dirname, '../../packages/recipe-store/src/index.ts'),

@@ -502,3 +502,8 @@ export const getWorkspaceForUrl = (url: string): DocumentWorkspaceSnapshot | und
     return undefined;
   }
 };
+
+export const resetDocumentWorkspacesForTesting = (): void => {
+  workspaces.clear();
+  workspaceAliases.clear();
+};

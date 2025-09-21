@@ -16,6 +16,11 @@ const targetModelerMemory = new Memory({
   }
 });
 
+const TARGET_MODELER_TRACE_METADATA = Object.freeze({
+  agentId: 'targetModelerAgent',
+  role: 'target-modeler'
+});
+
 export const targetModelerAgent: Agent<'targetModelerAgent'> = new Agent({
   id: 'targetModelerAgent',
   name: 'targetModelerAgent',
@@ -31,6 +36,16 @@ export const targetModelerAgent: Agent<'targetModelerAgent'> = new Agent({
   `,
   model: openai(DEFAULT_OPENAI_MODEL),
   memory: targetModelerMemory,
+  defaultGenerateOptions: {
+    tracingOptions: {
+      metadata: TARGET_MODELER_TRACE_METADATA
+    }
+  },
+  defaultStreamOptions: {
+    tracingOptions: {
+      metadata: TARGET_MODELER_TRACE_METADATA
+    }
+  },
   tools: {
     document_insight: documentInsightTool,
     target_draft: targetDraftTool

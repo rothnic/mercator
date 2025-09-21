@@ -21,7 +21,7 @@ interface AgentInteraction {
   readonly timestamp: string;
 }
 
-class MercatorAgentNetwork extends MastraBase implements AgentNetwork {
+export class MercatorAgentNetwork extends MastraBase implements AgentNetwork {
   private readonly instructions: string;
   private readonly model: AgentNetworkConfig['model'];
   private readonly agents: Agent[];
@@ -77,9 +77,25 @@ class MercatorAgentNetwork extends MastraBase implements AgentNetwork {
 
     this.routingAgent = new Agent({
       name: config.name,
-      instructions: () => this.getInstructions(),
+      instructions: this.getInstructions(),
       model: this.model,
-      tools: () => this.tools
+      tools: this.tools,
+      defaultGenerateOptions: {
+        tracingOptions: {
+          metadata: {
+            agentId: this.formatAgentId(config.name),
+            networkRole: 'router'
+          }
+        }
+      },
+      defaultStreamOptions: {
+        tracingOptions: {
+          metadata: {
+            agentId: this.formatAgentId(config.name),
+            networkRole: 'router'
+          }
+        }
+      }
     });
   }
 
@@ -200,7 +216,17 @@ class MercatorAgentNetwork extends MastraBase implements AgentNetwork {
       const prompt = historyPrompt ? `${historyPrompt}\n\n${instruction}` : instruction;
       const messages = [{ role: 'user', content: prompt }];
 
-      const result = await agent.generate(messages, { runtimeContext });
+      const result = await agent.generate(messages, {
+        runtimeContext,
+        tracingOptions: {
+          metadata: {
+            agentId: this.formatAgentId(agent.name),
+            networkRole: 'specialist',
+            routedBy: this.formatAgentId(this.routingAgent.name),
+            includeHistory
+          }
+        }
+      });
       return result.text ?? '';
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

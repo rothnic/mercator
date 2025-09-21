@@ -15,6 +15,11 @@ const orchestratorMemory: Memory = new Memory({
   }
 });
 
+const ORCHESTRATOR_TRACE_METADATA = Object.freeze({
+  agentId: 'orchestratorAgent',
+  role: 'orchestrator'
+});
+
 export const orchestratorAgent: Agent<'orchestratorAgent'> = new Agent({
   id: 'orchestratorAgent',
   name: 'orchestratorAgent',
@@ -35,6 +40,16 @@ export const orchestratorAgent: Agent<'orchestratorAgent'> = new Agent({
   `,
   model: openai(DEFAULT_OPENAI_MODEL),
   memory: orchestratorMemory,
+  defaultGenerateOptions: {
+    tracingOptions: {
+      metadata: ORCHESTRATOR_TRACE_METADATA
+    }
+  },
+  defaultStreamOptions: {
+    tracingOptions: {
+      metadata: ORCHESTRATOR_TRACE_METADATA
+    }
+  },
   tools: {
     orchestrator_tool: orchestratorTool,
     extraction_network_transmit: extractionNetwork.getTools().transmit

@@ -16,6 +16,11 @@ const evaluationMemory = new Memory({
   }
 });
 
+const EVALUATION_TRACE_METADATA = Object.freeze({
+  agentId: 'evaluationAgent',
+  role: 'evaluation'
+});
+
 export const evaluationAgent: Agent<'evaluationAgent'> = new Agent({
   id: 'evaluationAgent',
   name: 'evaluationAgent',
@@ -30,6 +35,16 @@ export const evaluationAgent: Agent<'evaluationAgent'> = new Agent({
   `,
   model: openai(DEFAULT_OPENAI_MODEL),
   memory: evaluationMemory,
+  defaultGenerateOptions: {
+    tracingOptions: {
+      metadata: EVALUATION_TRACE_METADATA
+    }
+  },
+  defaultStreamOptions: {
+    tracingOptions: {
+      metadata: EVALUATION_TRACE_METADATA
+    }
+  },
   tools: {
     rule_lab: ruleLabTool,
     document_insight: documentInsightTool

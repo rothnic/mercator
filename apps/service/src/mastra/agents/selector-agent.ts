@@ -17,6 +17,11 @@ const selectorMemory = new Memory({
   }
 });
 
+const SELECTOR_TRACE_METADATA = Object.freeze({
+  agentId: 'selectorAgent',
+  role: 'selector'
+});
+
 export const selectorAgent: Agent<'selectorAgent'> = new Agent({
   id: 'selectorAgent',
   name: 'selectorAgent',
@@ -36,6 +41,16 @@ export const selectorAgent: Agent<'selectorAgent'> = new Agent({
   `,
   model: openai(DEFAULT_OPENAI_MODEL),
   memory: selectorMemory,
+  defaultGenerateOptions: {
+    tracingOptions: {
+      metadata: SELECTOR_TRACE_METADATA
+    }
+  },
+  defaultStreamOptions: {
+    tracingOptions: {
+      metadata: SELECTOR_TRACE_METADATA
+    }
+  },
   tools: {
     document_insight: documentInsightTool,
     rule_lab: ruleLabTool,

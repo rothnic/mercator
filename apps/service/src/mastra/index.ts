@@ -55,8 +55,8 @@ export const mastra: MercatorMastraInstance = new Mastra({
   },
   storage,
   telemetry: {
-    enabled: false,
-    disableLocalExport: true
+    enabled: true,
+    disableLocalExport: false
   },
   logger: new PinoLogger({
     name: 'MercatorOrchestrator',

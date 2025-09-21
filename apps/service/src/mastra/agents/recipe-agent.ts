@@ -7,6 +7,11 @@ const DEFAULT_INSTRUCTIONS = [
   'Call the `generate_recipe` tool exactly once per run and return the JSON payload it produces without modification.'
 ].join('\n');
 
+const RECIPE_TRACE_METADATA = Object.freeze({
+  agentId: 'recipeAgent',
+  role: 'recipe'
+});
+
 export interface RecipeAgentOptions {
   readonly model?: MastraLanguageModel;
 }
@@ -20,6 +25,16 @@ export const createRecipeAgent = (options?: RecipeAgentOptions): Agent<'recipeAg
     id: 'recipeAgent',
     name: 'recipeAgent',
     instructions: DEFAULT_INSTRUCTIONS,
-    model
+    model,
+    defaultGenerateOptions: {
+      tracingOptions: {
+        metadata: RECIPE_TRACE_METADATA
+      }
+    },
+    defaultStreamOptions: {
+      tracingOptions: {
+        metadata: RECIPE_TRACE_METADATA
+      }
+    }
   });
 };

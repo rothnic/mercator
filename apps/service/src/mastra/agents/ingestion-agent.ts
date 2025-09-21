@@ -17,6 +17,11 @@ const ingestionMemory = new Memory({
   }
 });
 
+const INGESTION_TRACE_METADATA = Object.freeze({
+  agentId: 'ingestionAgent',
+  role: 'ingestion'
+});
+
 export const ingestionAgent: Agent<'ingestionAgent'> = new Agent({
   id: 'ingestionAgent',
   name: 'ingestionAgent',
@@ -36,6 +41,16 @@ export const ingestionAgent: Agent<'ingestionAgent'> = new Agent({
   `,
   model: openai(DEFAULT_OPENAI_MODEL),
   memory: ingestionMemory,
+  defaultGenerateOptions: {
+    tracingOptions: {
+      metadata: INGESTION_TRACE_METADATA
+    }
+  },
+  defaultStreamOptions: {
+    tracingOptions: {
+      metadata: INGESTION_TRACE_METADATA
+    }
+  },
   tools: {
     scrape_url: scrapeUrlTool,
     recipe_intel: recipeIntelTool,
