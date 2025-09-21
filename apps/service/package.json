@@ -17,6 +17,7 @@
     "@mercator/fixtures": "workspace:*",
     "@mercator/recipe-store": "workspace:*",
     "cheerio": "^1.0.0",
+    "domhandler": "^5.0.3",
     "@mastra/core": "^0.16.3",
     "@mastra/libsql": "^0.14.1",
     "@mastra/loggers": "^0.10.11",
