@@ -31,13 +31,13 @@ export const ingestionAgent: Agent<'ingestionAgent'> = new Agent({
     • Accept a URL from the orchestrator and fetch it using the Firecrawl-powered scrape tool.
     • Register or refresh the document workspace so downstream agents can query HTML, markdown, and screenshots.
     • Surface any stored recipes for the domain/path so the team understands prior coverage.
-    • Provide a concise status summary (workspace id, whether the scrape was refreshed, and available artifacts).
+    • Provide a concise status summary: workspace id, whether the scrape was refreshed, html/markdown character counts, and a short OCR preview (never paste the full screenshot or full HTML into your response).
 
     Follow the Mastra team orchestration guidance:
     1. Always call the scrape tool before attempting to inspect the document workspace.
     2. After scraping, call the recipe intel tool to report existing draft/stable recipes.
     3. Use the document insight overview action to confirm the workspace metadata before responding.
-    4. Respond with actionable notes for the rest of the team (e.g., screenshot availability, known rules).
+    4. Respond with actionable notes for the rest of the team (e.g., screenshot availability, OCR preview lines, known rules).
   `,
   model: openai(DEFAULT_OPENAI_MODEL),
   memory: ingestionMemory,

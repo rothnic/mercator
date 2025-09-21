@@ -6,6 +6,7 @@ import { findRecipesForDocument } from '../services/recipe-directory';
 import {
   getWorkspaceForUrl,
   registerDocumentWorkspace,
+  readOcrTranscript,
   type DocumentWorkspaceSnapshot
 } from '../workspaces/document-workspace';
 
@@ -31,13 +32,28 @@ const directoryLookupSchema = z.object({
   drafts: z.array(recipeSummarySchema)
 });
 
+const MAX_OCR_LINES = 12;
+
+const sanitizeTranscriptLine = (value: string): string =>
+  value.replace(/^#+\s*/, '').replace(/[*`_]+/g, '').trim();
+
+const deriveOcrTranscript = (markdown: string): readonly string[] => {
+  return markdown
+    .split(/\r?\n/)
+    .map((line) => sanitizeTranscriptLine(line))
+    .filter((line) => line.length > 0)
+    .slice(0, MAX_OCR_LINES)
+    .map((line) => line.slice(0, 120));
+};
+
 const outputSchema = z.object({
   workspaceId: z.string(),
   url: z.string().url(),
   domain: z.string(),
   path: z.string(),
   screenshotUrl: z.string().url().optional(),
-  screenshotBase64: z.string().optional(),
+  hasScreenshot: z.boolean(),
+  ocrPreview: z.array(z.string()).max(5).optional(),
   htmlLength: z.number().int().nonnegative(),
   markdownLength: z.number().int().nonnegative(),
   ruleCount: z.number().int().nonnegative(),
@@ -60,9 +76,11 @@ export const scrapeUrlTool = createTool({
     const { url, refresh } = context;
     let snapshot: DocumentWorkspaceSnapshot | undefined = refresh ? undefined : getWorkspaceForUrl(url);
     let refreshed = false;
+    let transcript: readonly string[] | undefined;
 
     if (!snapshot || refresh) {
       const scrape = await firecrawlService.scrape(url);
+      transcript = deriveOcrTranscript(scrape.markdown);
       snapshot = registerDocumentWorkspace({
         url: scrape.url,
         domain: scrape.domain,
@@ -70,12 +88,21 @@ export const scrapeUrlTool = createTool({
         html: scrape.html,
         markdown: scrape.markdown,
         screenshotUrl: scrape.screenshotUrl,
-        screenshotBase64: scrape.screenshotBase64
+        screenshotBase64: scrape.screenshotBase64,
+        ocrTranscript: transcript
       });
       refreshed = true;
     }
 
     const existing = await findRecipesForDocument(snapshot.domain, snapshot.path).catch(() => undefined);
+
+    if (!transcript) {
+      transcript = await readOcrTranscript(snapshot.id)
+        .then((result) => result.lines)
+        .catch(() => []);
+    }
+
+    const ocrPreview = transcript.slice(0, 4);
 
     return {
       workspaceId: snapshot.id,
@@ -83,7 +110,8 @@ export const scrapeUrlTool = createTool({
       domain: snapshot.domain,
       path: snapshot.path,
       screenshotUrl: snapshot.screenshotUrl,
-      screenshotBase64: snapshot.screenshotBase64,
+      hasScreenshot: Boolean(snapshot.screenshotBase64 || snapshot.screenshotUrl),
+      ocrPreview: ocrPreview.length > 0 ? ocrPreview : undefined,
       htmlLength: snapshot.htmlLength,
       markdownLength: snapshot.markdownLength,
       ruleCount: snapshot.ruleCount,

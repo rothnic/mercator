@@ -4,7 +4,9 @@ import { z } from 'zod';
 import {
   getWorkspaceSnapshot,
   queryHtml,
+  searchHtmlText,
   searchMarkdown,
+  readOcrTranscript,
   ProductDraftSchema,
   type RuleEvaluationResult
 } from '../workspaces/document-workspace';
@@ -38,6 +40,8 @@ const overviewOutputSchema = z.object({
     htmlLength: z.number().int().nonnegative(),
     markdownLength: z.number().int().nonnegative(),
     ruleCount: z.number().int().nonnegative(),
+    hasScreenshot: z.boolean(),
+    screenshotUrl: z.string().url().optional(),
     targetDraft: ProductDraftSchema.optional(),
     lastEvaluation: z.array(ruleEvaluationSchema).optional()
   })
@@ -70,6 +74,32 @@ const htmlQueryOutputSchema = z.object({
     .optional()
 });
 
+const htmlSearchMatchSchema = z.object({
+  path: z.string(),
+  textSnippet: z.string(),
+  htmlSnippet: z.string(),
+  attributes: z.record(z.string()),
+  occurrenceCount: z.number().int().nonnegative()
+});
+
+const htmlSearchOutputSchema = z.object({
+  action: z.literal('htmlSearch'),
+  workspaceId: z.string(),
+  query: z.string(),
+  totalMatches: z.number().int().nonnegative(),
+  matches: z.array(htmlSearchMatchSchema),
+  chunk: z
+    .object({
+      id: z.string(),
+      selector: z.string(),
+      label: z.string().optional(),
+      description: z.string().optional(),
+      snippet: z.string(),
+      nodeCount: z.number().int().nonnegative()
+    })
+    .optional()
+});
+
 const markdownSearchMatchSchema = z.object({
   heading: z.string().nullable(),
   excerpt: z.string(),
@@ -84,8 +114,20 @@ const markdownSearchOutputSchema = z.object({
   matches: z.array(markdownSearchMatchSchema)
 });
 
+const visionOcrOutputSchema = z.object({
+  action: z.literal('visionOcr'),
+  workspaceId: z.string(),
+  region: z.string().optional(),
+  totalLines: z.number().int().nonnegative(),
+  offset: z.number().int().nonnegative(),
+  returnedLines: z.number().int().nonnegative(),
+  lines: z.array(z.string()),
+  hasMore: z.boolean(),
+  preview: z.string().optional()
+});
+
 interface DocumentInsightInputCandidate {
-  action: 'overview' | 'htmlQuery' | 'markdownSearch';
+  action: 'overview' | 'htmlQuery' | 'markdownSearch' | 'htmlSearch' | 'visionOcr';
   workspaceId: string;
   selector?: string;
   attribute?: string;
@@ -94,6 +136,9 @@ interface DocumentInsightInputCandidate {
   query?: string;
   caseSensitive?: boolean;
   maxSnippets?: number;
+  region?: string;
+  maxLines?: number;
+  offset?: number;
 }
 
 const disallowKeys = (
@@ -115,7 +160,7 @@ const disallowKeys = (
 
 const inputSchema = z
   .object({
-    action: z.enum(['overview', 'htmlQuery', 'markdownSearch']),
+    action: z.enum(['overview', 'htmlQuery', 'markdownSearch', 'htmlSearch', 'visionOcr']),
     workspaceId: z.string(),
     selector: z.string().optional(),
     attribute: z.string().optional(),
@@ -123,7 +168,10 @@ const inputSchema = z
     chunkId: z.string().optional(),
     query: z.string().optional(),
     caseSensitive: z.boolean().optional(),
-    maxSnippets: z.number().int().positive().max(10).optional()
+    maxSnippets: z.number().int().positive().max(10).optional(),
+    region: z.string().optional(),
+    maxLines: z.number().int().positive().optional(),
+    offset: z.number().int().nonnegative().optional()
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -148,6 +196,24 @@ const inputSchema = z
         disallowKeys(value, ctx, ['query', 'caseSensitive', 'maxSnippets'], 'htmlQuery');
         break;
       }
+      case 'htmlSearch': {
+        if (!value.query || value.query.trim().length === 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['query'],
+            message: 'Provide a search phrase to locate within the HTML.'
+          });
+        }
+        disallowKeys(value, ctx, ['selector', 'attribute', 'maxSnippets'], 'htmlSearch');
+        if (value.limit !== undefined && value.limit > 25) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['limit'],
+            message: 'Limit must be 25 or fewer results.'
+          });
+        }
+        break;
+      }
       case 'markdownSearch': {
         if (!value.query || value.query.trim().length === 0) {
           ctx.addIssue({
@@ -159,6 +225,24 @@ const inputSchema = z
         disallowKeys(value, ctx, ['selector', 'attribute', 'limit', 'chunkId'], 'markdownSearch');
         break;
       }
+      case 'visionOcr': {
+        disallowKeys(value, ctx, ['selector', 'attribute', 'query', 'chunkId', 'caseSensitive', 'maxSnippets'], 'visionOcr');
+        if (value.maxLines !== undefined && (value.maxLines <= 0 || value.maxLines > 25)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['maxLines'],
+            message: 'maxLines must be between 1 and 25.'
+          });
+        }
+        if (value.offset !== undefined && value.offset < 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['offset'],
+            message: 'offset must be a non-negative integer.'
+          });
+        }
+        break;
+      }
     }
   });
 
@@ -166,7 +250,9 @@ type DocumentInsightInput = DocumentInsightInputCandidate;
 
 type DocumentInsightOverviewContext = Extract<DocumentInsightInput, { action: 'overview' }>;
 type DocumentInsightHtmlQueryContext = Extract<DocumentInsightInput, { action: 'htmlQuery' }>;
+type DocumentInsightHtmlSearchContext = Extract<DocumentInsightInput, { action: 'htmlSearch' }>;
 type DocumentInsightMarkdownSearchContext = Extract<DocumentInsightInput, { action: 'markdownSearch' }>;
+type DocumentInsightVisionOcrContext = Extract<DocumentInsightInput, { action: 'visionOcr' }>;
 
 const isOverviewContext = (
   context: DocumentInsightInput
@@ -177,12 +263,27 @@ const isHtmlQueryContext = (
 ): context is DocumentInsightHtmlQueryContext =>
   context.action === 'htmlQuery' && typeof context.selector === 'string';
 
+const isHtmlSearchContext = (
+  context: DocumentInsightInput
+): context is DocumentInsightHtmlSearchContext =>
+  context.action === 'htmlSearch' && typeof context.query === 'string';
+
 const isMarkdownSearchContext = (
   context: DocumentInsightInput
 ): context is DocumentInsightMarkdownSearchContext =>
   context.action === 'markdownSearch' && typeof context.query === 'string';
 
-const outputSchema = z.discriminatedUnion('action', [overviewOutputSchema, htmlQueryOutputSchema, markdownSearchOutputSchema]);
+const isVisionOcrContext = (
+  context: DocumentInsightInput
+): context is DocumentInsightVisionOcrContext => context.action === 'visionOcr';
+
+const outputSchema = z.discriminatedUnion('action', [
+  overviewOutputSchema,
+  htmlQueryOutputSchema,
+  htmlSearchOutputSchema,
+  markdownSearchOutputSchema,
+  visionOcrOutputSchema
+]);
 
 export const documentInsightTool = createTool({
   id: 'document-insight',
@@ -210,6 +311,8 @@ export const documentInsightTool = createTool({
           htmlLength: snapshot.htmlLength,
           markdownLength: snapshot.markdownLength,
           ruleCount: snapshot.ruleCount,
+          hasScreenshot: Boolean(snapshot.screenshotBase64 || snapshot.screenshotUrl),
+          screenshotUrl: snapshot.screenshotUrl,
           targetDraft: snapshot.targetDraft,
           lastEvaluation: snapshot.lastEvaluation
         }
@@ -249,6 +352,39 @@ export const documentInsightTool = createTool({
       } satisfies z.infer<typeof htmlQueryOutputSchema>;
     }
 
+    if (isHtmlSearchContext(context)) {
+      const result = await searchHtmlText(workspaceId, {
+        query: context.query,
+        chunkId: context.chunkId,
+        limit: context.limit,
+        caseSensitive: context.caseSensitive
+      });
+
+      return {
+        action: 'htmlSearch',
+        workspaceId: context.workspaceId,
+        query: context.query,
+        totalMatches: result.totalMatches,
+        matches: result.matches.map((match) => ({
+          path: match.path,
+          textSnippet: match.textSnippet,
+          htmlSnippet: match.htmlSnippet,
+          attributes: { ...match.attributes },
+          occurrenceCount: match.occurrenceCount
+        })),
+        chunk: result.chunk
+          ? {
+              id: result.chunk.id,
+              selector: result.chunk.selector,
+              label: result.chunk.label,
+              description: result.chunk.description,
+              snippet: result.chunk.snippet,
+              nodeCount: result.chunk.nodeCount
+            }
+          : undefined
+      } satisfies z.infer<typeof htmlSearchOutputSchema>;
+    }
+
     if (isMarkdownSearchContext(context)) {
       const result = await searchMarkdown(workspaceId, {
         query: context.query,
@@ -266,6 +402,31 @@ export const documentInsightTool = createTool({
           lineRange: [match.lineRange[0], match.lineRange[1]] as [number, number]
         }))
       } satisfies z.infer<typeof markdownSearchOutputSchema>;
+    }
+
+    if (isVisionOcrContext(context)) {
+      const transcript = await readOcrTranscript(workspaceId, { region: context.region });
+      const totalLines = transcript.lines.length;
+      const rawOffset = typeof context.offset === 'number' ? context.offset : 0;
+      const offset = Math.max(0, Number(rawOffset));
+      const requestedMaxLines = typeof context.maxLines === 'number' ? context.maxLines : 10;
+      const normalizedMaxLines = Number(requestedMaxLines);
+      const maxLines = Math.min(Math.max(normalizedMaxLines, 1), 25);
+      const lines = transcript.lines.slice(offset, offset + maxLines);
+      const hasMore = offset + lines.length < totalLines;
+      const preview = transcript.fullText.slice(0, 400);
+
+      return {
+        action: 'visionOcr',
+        workspaceId: context.workspaceId,
+        region: context.region,
+        totalLines,
+        offset,
+        returnedLines: lines.length,
+        lines,
+        hasMore,
+        preview: preview.length > 0 ? preview : undefined
+      } satisfies z.infer<typeof visionOcrOutputSchema>;
     }
 
     throw new Error(`Unsupported action ${(context as { action: string }).action}`);

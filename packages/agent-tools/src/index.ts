@@ -59,6 +59,28 @@ export interface HtmlQueryResult {
   readonly chunk?: HtmlChunkSummary;
 }
 
+export interface HtmlTextSearchRequest {
+  readonly query: string;
+  readonly chunkId?: string;
+  readonly limit?: number;
+  readonly caseSensitive?: boolean;
+}
+
+export interface HtmlTextSearchMatch {
+  readonly path: string;
+  readonly textSnippet: string;
+  readonly htmlSnippet: string;
+  readonly attributes: Readonly<Record<string, string>>;
+  readonly occurrenceCount: number;
+}
+
+export interface HtmlTextSearchResult {
+  readonly fixtureId: string;
+  readonly totalMatches: number;
+  readonly matches: readonly HtmlTextSearchMatch[];
+  readonly chunk?: HtmlChunkSummary;
+}
+
 export interface MarkdownSearchRequest {
   readonly query: string;
   readonly caseSensitive?: boolean;
@@ -84,6 +106,7 @@ export interface FixtureToolset {
   readonly html: {
     listChunks(): Promise<readonly HtmlChunkSummary[]>;
     query(request: HtmlQueryRequest): Promise<HtmlQueryResult>;
+    searchText(request: HtmlTextSearchRequest): Promise<HtmlTextSearchResult>;
   };
   readonly markdown: {
     search(request: MarkdownSearchRequest): Promise<MarkdownSearchResult>;
@@ -281,9 +304,12 @@ const createHtmlQueryMatches = (
   const elements = nodes.filter(isElementNode);
 
   for (const element of elements.slice(0, limit)) {
-    const html = $.html(element)?.trim() ?? '';
+    const html = ($.html(element) ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 1600);
     const elementWrapper = $(element);
-    const text = collapseWhitespace(elementWrapper.text() ?? '');
+    const text = collapseWhitespace(elementWrapper.text() ?? '').slice(0, 600);
     const attributes = { ...(element.attribs ?? {}) };
     const attributeValue = request.attribute ? element.attribs?.[request.attribute] : undefined;
 
@@ -294,6 +320,76 @@ const createHtmlQueryMatches = (
       attributeValue,
       path: buildCssPath($, element)
     });
+  }
+
+  return matches;
+};
+
+const createHtmlTextSearchMatches = (
+  $: CheerioAPI,
+  root: Cheerio<Element>,
+  request: HtmlTextSearchRequest
+): HtmlTextSearchMatch[] => {
+  const limit = request.limit ?? 5;
+  const query = request.caseSensitive ? request.query : request.query.toLowerCase();
+  const matches: HtmlTextSearchMatch[] = [];
+
+  if (!query.trim()) {
+    return matches;
+  }
+
+  const seenPaths = new Set<string>();
+  const elements = root.find('*').toArray().filter(isElementNode);
+
+  for (const element of elements) {
+    const elementWrapper = $(element);
+    const rawText = collapseWhitespace(elementWrapper.text() ?? '');
+    if (!rawText) {
+      continue;
+    }
+
+    const haystack = request.caseSensitive ? rawText : rawText.toLowerCase();
+    const index = haystack.indexOf(query);
+    if (index === -1) {
+      continue;
+    }
+
+    const path = buildCssPath($, element);
+    if (seenPaths.has(path)) {
+      continue;
+    }
+
+    const before = Math.max(index - 80, 0);
+    const after = Math.min(index + query.length + 120, rawText.length);
+    const snippet = rawText.slice(before, after).trim();
+
+    const occurrenceCount = (() => {
+      let count = 0;
+      let position = index;
+      while (position !== -1) {
+        count += 1;
+        position = haystack.indexOf(query, position + query.length);
+      }
+      return count;
+    })();
+
+    const htmlSnippet = ($.html(element) ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 1200);
+
+    matches.push({
+      path,
+      textSnippet: snippet.slice(0, 600),
+      htmlSnippet,
+      attributes: { ...(element.attribs ?? {}) },
+      occurrenceCount
+    });
+    seenPaths.add(path);
+
+    if (matches.length >= limit) {
+      break;
+    }
   }
 
   return matches;
@@ -369,6 +465,35 @@ export const createDocumentToolset = (options: DocumentToolsetOptions): FixtureT
         const { root, summary } = resolveChunkRoot($, chunkLookup, request.chunkId);
         const matches = createHtmlQueryMatches($, root, request);
         const totalMatches = root.find(request.selector).length;
+        return Promise.resolve({
+          fixtureId: documentId,
+          totalMatches,
+          matches,
+          chunk: summary
+        });
+      },
+      searchText(request: HtmlTextSearchRequest): Promise<HtmlTextSearchResult> {
+        if (!request.query.trim()) {
+          throw new Error('Query must not be empty for html.searchText');
+        }
+        usage.record('html.searchText', request);
+        const { root, summary } = resolveChunkRoot($, chunkLookup, request.chunkId);
+        const matches = createHtmlTextSearchMatches($, root, request);
+        const haystack = request.caseSensitive ? request.query : request.query.toLowerCase();
+        const totalMatches = root
+          .find('*')
+          .toArray()
+          .filter(isElementNode)
+          .reduce((count, element) => {
+            const elementWrapper = $(element);
+            const text = collapseWhitespace(elementWrapper.text() ?? '');
+            if (!text) {
+              return count;
+            }
+            const textHaystack = request.caseSensitive ? text : text.toLowerCase();
+            return textHaystack.includes(haystack) ? count + 1 : count;
+          }, 0);
+
         return Promise.resolve({
           fixtureId: documentId,
           totalMatches,

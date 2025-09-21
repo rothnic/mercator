@@ -55,8 +55,10 @@ describe('scrapeUrlTool', () => {
     expect(result.domain).toBe('www.amazon.com');
     expect(result.path).toBe('/dp/B0D2WYHCZV');
     expect(result.refreshed).toBe(true);
+    expect(result.hasScreenshot).toBe(true);
     expect(result.htmlLength).toBeGreaterThan(0);
     expect(result.markdownLength).toBeGreaterThan(0);
+    expect(result.ocrPreview?.[0]).toBe('Sample Product');
 
     const snapshot = getWorkspaceSnapshot(result.workspaceId);
     expect(snapshot.domain).toBe('www.amazon.com');

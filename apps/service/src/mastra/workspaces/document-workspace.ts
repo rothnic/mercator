@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import { createDocumentToolset, type FixtureToolset, type HtmlQueryResult, type MarkdownSearchResult } from '@mercator/agent-tools';
+import {
+  createDocumentToolset,
+  type FixtureToolset,
+  type HtmlQueryResult,
+  type HtmlTextSearchResult,
+  type MarkdownSearchResult,
+  type VisionOcrResult
+} from '@mercator/agent-tools';
 import { ProductSchema, type Product, RecipeFieldIdSchema, type RecipeFieldId } from '@mercator/core';
 import { z } from 'zod';
 
@@ -70,6 +77,7 @@ export interface RegisterDocumentOptions {
   readonly markdown: string;
   readonly screenshotUrl?: string;
   readonly screenshotBase64?: string;
+  readonly ocrTranscript?: readonly string[];
 }
 
 export interface DocumentWorkspaceSnapshot {
@@ -179,6 +187,14 @@ const toSnapshot = (workspace: DocumentWorkspaceInternal): DocumentWorkspaceSnap
   lastEvaluation: workspace.lastEvaluation ? workspace.lastEvaluation.map((entry) => ({ ...entry })) : undefined
 });
 
+const deriveTranscriptFromMarkdown = (markdown: string): readonly string[] =>
+  markdown
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^#+\s*/, '').replace(/[*`_]+/g, '').trim())
+    .filter((line) => line.length > 0)
+    .slice(0, 12)
+    .map((line) => line.slice(0, 120));
+
 const mergeObjects = (
   current: Record<string, unknown> | undefined,
   patch: Record<string, unknown>
@@ -269,7 +285,8 @@ export const registerDocumentWorkspace = (options: RegisterDocumentOptions): Doc
   const toolset = createDocumentToolset({
     documentId: id,
     html,
-    markdown
+    markdown,
+    ocrTranscript: options.ocrTranscript ?? deriveTranscriptFromMarkdown(markdown)
   });
   const workspace: DocumentWorkspaceInternal = {
     id,
@@ -361,6 +378,19 @@ export const queryHtml = (
     attribute: request.attribute,
     limit: request.limit,
     chunkId: request.chunkId
+  });
+};
+
+export const searchHtmlText = (
+  workspaceId: string,
+  request: { query: string; chunkId?: string; limit?: number; caseSensitive?: boolean }
+): Promise<HtmlTextSearchResult> => {
+  const workspace = assertWorkspace(workspaceId);
+  return workspace.toolset.html.searchText({
+    query: request.query,
+    chunkId: request.chunkId,
+    limit: request.limit,
+    caseSensitive: request.caseSensitive
   });
 };
 
@@ -484,6 +514,14 @@ export const evaluateRules = async (workspaceId: string, focus?: readonly Recipe
   workspace.lastEvaluation = evaluations.map((entry) => ({ ...entry }));
   workspace.updatedAt = new Date();
   return evaluations;
+};
+
+export const readOcrTranscript = (
+  workspaceId: string,
+  request?: { region?: string }
+): Promise<VisionOcrResult> => {
+  const workspace = assertWorkspace(workspaceId);
+  return workspace.toolset.vision.readOcr({ region: request?.region });
 };
 
 export const getTargetDraft = (workspaceId: string): ProductDraft | undefined => {

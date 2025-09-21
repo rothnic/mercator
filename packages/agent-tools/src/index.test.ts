@@ -30,6 +30,14 @@ describe('fixture toolset', () => {
     expect(breadcrumbLinks.matches[0]?.attributes.href).toBe('https://demo.mercator.sh/');
   });
 
+  it('searches HTML text for keyword snippets without returning the full document', async () => {
+    const result = await toolset.html.searchText({ query: 'Precision Pour-Over Kettle' });
+
+    expect(result.totalMatches).toBeGreaterThan(0);
+    expect(result.matches[0]?.textSnippet).toContain('Precision Pour-Over Kettle');
+    expect(result.matches[0]?.htmlSnippet.length).toBeLessThanOrEqual(1200);
+  });
+
   it('searches markdown sections for deterministic snippets', async () => {
     const result = await toolset.markdown.search({ query: 'warranty' });
     expect(result.totalMatches).toBeGreaterThan(0);
