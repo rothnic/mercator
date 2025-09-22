@@ -15,7 +15,11 @@ const ruleLabMock = vi.hoisted(() => ({
 
 vi.mock('../tools/rule-lab-tool', () => ruleLabMock);
 
-import { MercatorAgentNetwork } from './extraction-network';
+import { MercatorAgentNetwork, extractionNetwork } from './extraction-network';
+import { ingestionAgent } from '../agents/ingestion-agent';
+import { targetModelerAgent } from '../agents/target-modeler-agent';
+import { selectorAgent } from '../agents/selector-agent';
+import { evaluationAgent } from '../agents/evaluation-agent';
 import { DEFAULT_OPENAI_MODEL } from '../models';
 
 describe('MercatorAgentNetwork', () => {
@@ -51,5 +55,28 @@ describe('MercatorAgentNetwork', () => {
     expect(history.Sample_Specialist).toHaveLength(1);
     expect(history.Sample_Specialist[0].input).toBe('Collect product facts');
     expect(history.Sample_Specialist[0].output).toBe('Handled.');
+  });
+});
+
+describe('extractionNetwork (vNext)', () => {
+  it('lists sanitized specialist agents and surfaces router instructions', async () => {
+    const agents = await extractionNetwork.getAgents({ runtimeContext: undefined });
+    expect(Object.keys(agents)).toEqual(
+      expect.arrayContaining([
+        'ingestionAgent',
+        'targetModelerAgent',
+        'selectorAgent',
+        'evaluationAgent'
+      ])
+    );
+    expect(agents.ingestionAgent).toBe(ingestionAgent);
+    expect(agents.targetModelerAgent).toBe(targetModelerAgent);
+    expect(agents.selectorAgent).toBe(selectorAgent);
+    expect(agents.evaluationAgent).toBe(evaluationAgent);
+
+    const routingAgent = await extractionNetwork.getRoutingAgent({ runtimeContext: undefined });
+    expect(routingAgent.instructions).toContain('Coordinate Mercator\'s document-ingestion workflow');
+    expect(routingAgent.instructions).toContain('ingestionAgent');
+    expect(routingAgent.instructions).toContain('targetModelerAgent');
   });
 });

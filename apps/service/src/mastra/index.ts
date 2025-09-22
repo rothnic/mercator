@@ -8,7 +8,7 @@ import { evaluationAgent } from './agents/evaluation-agent';
 import { createRecipeAgent } from './agents/recipe-agent';
 import { orchestrationWorkflow } from './workflows/orchestration-workflow';
 import { storage } from './stores';
-import { extractionNetwork } from './networks/extraction-network';
+import { extractionNetwork, legacyExtractionNetwork } from './networks/extraction-network';
 
 type MercatorMastraInstance = Mastra<
   {
@@ -27,8 +27,13 @@ type MercatorMastraInstance = Mastra<
   Record<string, never>,
   PinoLogger,
   {
+    legacyExtractionNetwork: typeof legacyExtractionNetwork;
+  },
+  {
     extractionNetwork: typeof extractionNetwork;
-  }
+  },
+  Record<string, never>,
+  Record<string, never>
 >;
 
 declare global {
@@ -48,6 +53,9 @@ export const mastra: MercatorMastraInstance = new Mastra({
     recipeAgent: createRecipeAgent()
   },
   networks: {
+    legacyExtractionNetwork
+  },
+  vnext_networks: {
     extractionNetwork
   },
   workflows: {

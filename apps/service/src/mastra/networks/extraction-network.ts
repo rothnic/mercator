@@ -6,6 +6,7 @@ import { MastraBase } from '@mastra/core/base';
 import { RegisteredLogger } from '@mastra/core/logger';
 import type { Mastra } from '@mastra/core/mastra';
 import type { AgentNetwork, AgentNetworkConfig } from '@mastra/core/network';
+import { NewAgentNetwork } from '@mastra/core/network/vNext';
 import type { RuntimeContext } from '@mastra/core/runtime-context';
 import { createTool, type Tool } from '@mastra/core/tools';
 
@@ -14,6 +15,22 @@ import { targetModelerAgent } from '../agents/target-modeler-agent';
 import { selectorAgent } from '../agents/selector-agent';
 import { evaluationAgent } from '../agents/evaluation-agent';
 import { DEFAULT_OPENAI_MODEL } from '../models';
+
+const sanitizeAgentId = (name: string): string => name.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+const ROUTER_INSTRUCTIONS = `
+    Coordinate Mercator's document-ingestion workflow exactly as outlined in the Mastra AgentNetwork documentation.
+    The expected sequence is:
+    1. ingestionAgent → scrape the URL via Firecrawl and register the workspace.
+    2. targetModelerAgent → craft/merge the Product target draft from screenshot + markdown evidence.
+    3. selectorAgent → propose selectors, register rules, and iterate with evaluations until fields align.
+    4. evaluationAgent → confirm matches, highlight gaps, and signal readiness.
+
+    Always preserve context between steps by setting includeHistory=true when handing off to downstream agents.
+    Produce concise routing rationales so the primary orchestrator can display clear progress to the user.
+  `;
+
+const SPECIALIST_AGENTS = [ingestionAgent, targetModelerAgent, selectorAgent, evaluationAgent] as const;
 
 interface AgentInteraction {
   readonly input: string;
@@ -100,7 +117,7 @@ export class MercatorAgentNetwork extends MastraBase implements AgentNetwork {
   }
 
   formatAgentId(name: string): string {
-    return name.replace(/[^a-zA-Z0-9_-]/g, '_');
+    return sanitizeAgentId(name);
   }
 
   private resolveAgent(agentId: string): Agent | undefined {
@@ -285,19 +302,25 @@ export class MercatorAgentNetwork extends MastraBase implements AgentNetwork {
   }
 }
 
-export const extractionNetwork = new MercatorAgentNetwork({
-  name: 'extraction-network',
+export const legacyExtractionNetwork = new MercatorAgentNetwork({
+  name: 'legacy-extraction-network',
   model: openai(DEFAULT_OPENAI_MODEL),
-  instructions: `
-    Coordinate Mercator's document-ingestion workflow exactly as outlined in the Mastra AgentNetwork documentation.
-    The expected sequence is:
-    1. ingestionAgent → scrape the URL via Firecrawl and register the workspace.
-    2. targetModelerAgent → craft/merge the Product target draft from screenshot + markdown evidence.
-    3. selectorAgent → propose selectors, register rules, and iterate with evaluations until fields align.
-    4. evaluationAgent → confirm matches, highlight gaps, and signal readiness.
+  instructions: ROUTER_INSTRUCTIONS,
+  agents: [...SPECIALIST_AGENTS]
+});
 
-    Always preserve context between steps by setting includeHistory=true when handing off to downstream agents.
-    Produce concise routing rationales so the primary orchestrator can display clear progress to the user.
-  `,
-  agents: [ingestionAgent, targetModelerAgent, selectorAgent, evaluationAgent]
+const createSpecialistDirectory = (): Record<string, Agent> => {
+  const directory: Record<string, Agent> = {};
+  for (const agent of SPECIALIST_AGENTS) {
+    directory[sanitizeAgentId(agent.name)] = agent;
+  }
+  return directory;
+};
+
+export const extractionNetwork = new NewAgentNetwork({
+  id: 'extraction-network',
+  name: 'Mercator Extraction Network',
+  instructions: ROUTER_INSTRUCTIONS,
+  model: () => openai(DEFAULT_OPENAI_MODEL),
+  agents: () => createSpecialistDirectory()
 });

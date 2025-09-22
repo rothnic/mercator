@@ -7,11 +7,12 @@
     "emitDeclarationOnly": false,
     "outDir": "dist",
     "rootDir": "src",
+    "baseUrl": ".",
     "paths": {
-      "@mercator/core": ["./packages/core/dist/index.d.ts"],
-      "@mercator/core/*": ["./packages/core/dist/*"],
-      "@mercator/fixtures": ["./packages/fixtures/dist/index.d.ts"],
-      "@mercator/fixtures/*": ["./packages/fixtures/dist/*"]
+      "@mercator/core": ["../core/dist/index.d.ts"],
+      "@mercator/core/*": ["../core/dist/*"],
+      "@mercator/fixtures": ["../fixtures/dist/index.d.ts"],
+      "@mercator/fixtures/*": ["../fixtures/dist/*"]
     }
   },
   "include": ["src/**/*.ts"],

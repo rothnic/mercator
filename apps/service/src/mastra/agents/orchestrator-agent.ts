@@ -3,7 +3,7 @@ import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { storage } from '../stores';
 import { orchestratorTool } from '../tools/orchestrator-tool';
-import { extractionNetwork } from '../networks/extraction-network';
+import { legacyExtractionNetwork } from '../networks/extraction-network';
 import { DEFAULT_OPENAI_MODEL } from '../models';
 
 const orchestratorMemory: Memory = new Memory({
@@ -52,6 +52,6 @@ export const orchestratorAgent: Agent<'orchestratorAgent'> = new Agent({
   },
   tools: {
     orchestrator_tool: orchestratorTool,
-    extraction_network_transmit: extractionNetwork.getTools().transmit
+    extraction_network_transmit: legacyExtractionNetwork.getTools().transmit
   }
 });

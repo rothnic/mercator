@@ -14,7 +14,7 @@ These instructions apply to the entire repository. Follow them before submitting
 - Prefer explicit types and helper functions over `as` casts. If a cast seems necessary, stop and adjust the upstream types (see the backlog tasks on lifecycle history and validation maps).
 - Avoid hard-coding paths into `node_modules/.pnpm`. When a dependency cannot be resolved, add a proper entry point or shim instead of reaching into tool-managed directories.
 - When you touch orchestration logic, enforce budget limits (passes, tool invocations, elapsed time) instead of logging them only for observability.
-- Use the local `MercatorAgentNetwork` helper (see `apps/service/src/mastra/networks`) instead of instantiating `@mastra/core/network`'s deprecated `AgentNetwork` classes. This keeps Mastra dev free of deprecation banners and ensures routing stays in sync with our expectations.
+- Use the local network helpers (see `apps/service/src/mastra/networks`). The `legacyExtractionNetwork` exposes the synchronous transmit tool used by the orchestrator, while the exported `extractionNetwork` registers the vNext network instance Mastra's playground expects.
 - When adding new tools or workspace helpers, wire them through the alias-aware `document-workspace` utilities so that agents can resolve legacy workspace identifiers like `workspace_0`, `default`, or `ingestion_workspace` without runtime failures.
 
 ## Workflow Expectations
