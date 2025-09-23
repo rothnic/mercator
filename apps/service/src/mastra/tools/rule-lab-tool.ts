@@ -132,25 +132,25 @@ const ruleEvaluationSchema: z.ZodType<RuleEvaluationResult> = z.object({
 const listOutputSchema = z.object({
   action: z.literal('list'),
   workspaceId: z.string(),
-  rules: z.array(FieldRuleSchema)
+  rules: z.array(FieldRuleSchema).readonly(),
 });
 
 const setOutputSchema = z.object({
   action: z.literal('set'),
   workspaceId: z.string(),
-  rules: z.array(FieldRuleSchema)
+  rules: z.array(FieldRuleSchema).readonly(),
 });
 
 const removeOutputSchema = z.object({
   action: z.literal('remove'),
   workspaceId: z.string(),
-  rules: z.array(FieldRuleSchema)
+  rules: z.array(FieldRuleSchema).readonly(),
 });
 
 const evaluateOutputSchema = z.object({
   action: z.literal('evaluate'),
   workspaceId: z.string(),
-  results: z.array(ruleEvaluationSchema)
+  results: z.array(ruleEvaluationSchema).readonly(),
 });
 
 const outputSchema = z.discriminatedUnion('action', [

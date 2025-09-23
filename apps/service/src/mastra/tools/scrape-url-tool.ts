@@ -5,37 +5,42 @@ import { firecrawlService } from '../services/firecrawl-service';
 import { findRecipesForDocument } from '../services/recipe-directory';
 import {
   getWorkspaceForUrl,
-  registerDocumentWorkspace,
   readOcrTranscript,
-  type DocumentWorkspaceSnapshot
+  registerDocumentWorkspace,
+  type DocumentWorkspaceSnapshot,
 } from '../workspaces/document-workspace';
 
 const lifecycleStateSchema = z.enum(['draft', 'candidate', 'stable', 'retired']);
 
-const recipeSummarySchema = z.object({
-  id: z.string(),
-  state: lifecycleStateSchema,
-  name: z.string(),
-  updatedAt: z.string(),
-  promotedAt: z.string().optional(),
-  document: z
-    .object({
-      domain: z.string(),
-      path: z.string()
-    })
-    .optional(),
-  fieldCount: z.number().int().nonnegative()
-});
+const recipeSummarySchema = z
+  .object({
+    id: z.string(),
+    state: lifecycleStateSchema,
+    name: z.string(),
+    updatedAt: z.string(),
+    promotedAt: z.string().optional(),
+    document: z
+      .object({
+        domain: z.string(),
+        path: z.string(),
+      })
+      .optional(),
+    fieldCount: z.number().int().nonnegative(),
+  })
+  .readonly();
 
 const directoryLookupSchema = z.object({
   stable: recipeSummarySchema.optional(),
-  drafts: z.array(recipeSummarySchema)
+  drafts: z.array(recipeSummarySchema).readonly(),
 });
 
 const MAX_OCR_LINES = 12;
 
 const sanitizeTranscriptLine = (value: string): string =>
-  value.replace(/^#+\s*/, '').replace(/[*`_]+/g, '').trim();
+  value
+    .replace(/^#+\s*/, '')
+    .replace(/[*`_]+/g, '')
+    .trim();
 
 const deriveOcrTranscript = (markdown: string): readonly string[] => {
   return markdown
@@ -58,12 +63,12 @@ const outputSchema = z.object({
   markdownLength: z.number().int().nonnegative(),
   ruleCount: z.number().int().nonnegative(),
   refreshed: z.boolean(),
-  existingRules: directoryLookupSchema.optional()
+  existingRules: directoryLookupSchema.optional(),
 });
 
 const inputSchema = z.object({
   url: z.string().url({ message: 'Provide a valid URL to scrape.' }),
-  refresh: z.boolean().optional().default(false)
+  refresh: z.boolean().optional(),
 });
 
 export const scrapeUrlTool = createTool({
@@ -74,11 +79,14 @@ export const scrapeUrlTool = createTool({
   outputSchema,
   async execute({ context }) {
     const { url, refresh } = context;
-    let snapshot: DocumentWorkspaceSnapshot | undefined = refresh ? undefined : getWorkspaceForUrl(url);
+    const effectiveRefresh = refresh ?? false;
+    let snapshot: DocumentWorkspaceSnapshot | undefined = effectiveRefresh
+      ? undefined
+      : getWorkspaceForUrl(url);
     let refreshed = false;
     let transcript: readonly string[] | undefined;
 
-    if (!snapshot || refresh) {
+    if (!snapshot || effectiveRefresh) {
       const scrape = await firecrawlService.scrape(url);
       transcript = deriveOcrTranscript(scrape.markdown);
       snapshot = registerDocumentWorkspace({
@@ -89,12 +97,14 @@ export const scrapeUrlTool = createTool({
         markdown: scrape.markdown,
         screenshotUrl: scrape.screenshotUrl,
         screenshotBase64: scrape.screenshotBase64,
-        ocrTranscript: transcript
+        ocrTranscript: transcript,
       });
       refreshed = true;
     }
 
-    const existing = await findRecipesForDocument(snapshot.domain, snapshot.path).catch(() => undefined);
+    const existing = await findRecipesForDocument(snapshot.domain, snapshot.path).catch(
+      () => undefined,
+    );
 
     if (!transcript) {
       transcript = await readOcrTranscript(snapshot.id)
@@ -116,7 +126,7 @@ export const scrapeUrlTool = createTool({
       markdownLength: snapshot.markdownLength,
       ruleCount: snapshot.ruleCount,
       refreshed,
-      existingRules: existing
+      existingRules: existing,
     } satisfies z.infer<typeof outputSchema>;
-  }
+  },
 });

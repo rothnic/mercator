@@ -2,22 +2,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   mockScrape: vi.fn(),
-  mockFindRecipesForDocument: vi.fn()
+  mockFindRecipesForDocument: vi.fn(),
 }));
 
 vi.mock('../services/firecrawl-service', () => ({
   firecrawlService: {
-    scrape: mocks.mockScrape
-  }
+    scrape: mocks.mockScrape,
+  },
 }));
 
 vi.mock('../services/recipe-directory', () => ({
   findRecipesForDocument: mocks.mockFindRecipesForDocument,
-  findRecipesForUrl: vi.fn()
+  findRecipesForUrl: vi.fn(),
 }));
 
+import { RuntimeContext } from '@mastra/core/runtime-context';
+import {
+  getWorkspaceSnapshot,
+  resetDocumentWorkspacesForTesting,
+} from '../workspaces/document-workspace';
 import { scrapeUrlTool } from './scrape-url-tool';
-import { getWorkspaceSnapshot, resetDocumentWorkspacesForTesting } from '../workspaces/document-workspace';
 
 describe('scrapeUrlTool', () => {
   const sampleUrl = 'https://www.amazon.com/dp/B0D2WYHCZV';
@@ -36,20 +40,25 @@ describe('scrapeUrlTool', () => {
       html: '<html><body><h1>Sample</h1></body></html>',
       markdown: '# Sample Product',
       screenshotUrl: 'https://example.test/screenshot.png',
-      screenshotBase64: 'c2FtcGxlLWltYWdl'
+      screenshotBase64: 'c2FtcGxlLWltYWdl',
     });
 
     mocks.mockFindRecipesForDocument.mockResolvedValue({
       stable: undefined,
-      drafts: []
+      drafts: [],
     });
 
+    const runtimeContext = new RuntimeContext();
     const result = await scrapeUrlTool.execute({
-      context: { url: sampleUrl }
+      context: { url: sampleUrl },
+      runtimeContext,
     });
 
     expect(mocks.mockScrape).toHaveBeenCalledWith(sampleUrl);
-    expect(mocks.mockFindRecipesForDocument).toHaveBeenCalledWith('www.amazon.com', '/dp/B0D2WYHCZV');
+    expect(mocks.mockFindRecipesForDocument).toHaveBeenCalledWith(
+      'www.amazon.com',
+      '/dp/B0D2WYHCZV',
+    );
 
     expect(result.url).toBe(sampleUrl);
     expect(result.domain).toBe('www.amazon.com');
