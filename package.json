@@ -8,10 +8,7 @@
     "node": ">=18.18.0"
   },
   "scripts": {
-    "build": "pnpm -r build",
-    "build:packages": "pnpm --filter \"./packages/*\" run build",
-    "predev:agents": "pnpm build:packages",
-    "dev:agents": "pnpm --filter @mercator/service run dev",
+    "dev:agents": "pnpm --filter @mercator/service run demo",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "eslint . --ext .ts",

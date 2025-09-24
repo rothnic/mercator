@@ -5,7 +5,7 @@
   },
   "include": [
     "apps/**/*.ts",
-    "packages/**/*.ts",
+    "apps/**/*.tsx",
     "vitest.workspace.ts"
   ]
 }

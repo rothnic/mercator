@@ -4,7 +4,7 @@ Mercator evolves through thin vertical slices. Each iteration delivers a usable 
 
 | ID | Status  | Focus | Key Outcomes |
 |----|---------|-------|--------------|
-| I01 | In Progress | **MVP Product Page Loop** | Agent slice can analyze a fetched product URL, persist the generated recipe with domain metadata, and execute it deterministically via CLI/REST. |
+| I01 | In Progress | **Stubbed MVP Loop** | Minimal runner + scraper agent proved with fixtures; next slices add execution safety, validation, hints, and additional layouts. |
 | I02 | Planned | **Real Product Pages & Canarying** | Expand to curated live URLs, add canary/stable comparisons, observability, and address deferred MVP cleanup tasks. |
 | I03 | Planned | **Collection Pages & Pagination** | Extend schemas/agents to handle collection cards, pagination sampling, tolerance strategies for partial visibility. |
 | I04 | Planned | **Reviews & Interactivity** | Handle review sections with bounded Playwright plans or API usage, revisit queue for partial sections. |
