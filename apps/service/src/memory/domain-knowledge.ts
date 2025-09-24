@@ -1,6 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import type { MastraMessageV1 } from "@mastra/core/memory";
+
 export interface DomainScriptEntry {
 	pathRegex: string;
 	script: string;
@@ -8,9 +10,31 @@ export interface DomainScriptEntry {
 	notes?: string;
 }
 
+export interface DomainThreadMessage {
+	id: string;
+	role: "system" | "user" | "assistant" | "tool";
+	type: "text" | "tool-call" | "tool-result";
+	content: MastraMessageV1["content"];
+	createdAt: string;
+	toolCallIds?: string[];
+	toolCallArgs?: Record<string, unknown>[];
+	toolNames?: string[];
+}
+
+export interface DomainThread {
+	id: string;
+	resourceId: string;
+	title?: string;
+	createdAt: string;
+	updatedAt: string;
+	metadata?: Record<string, unknown>;
+	messages: DomainThreadMessage[];
+}
+
 export interface DomainKnowledge {
 	resourceId: string;
 	scripts: DomainScriptEntry[];
+	threads: Record<string, DomainThread>;
 }
 
 export const createDomainKnowledgePath = (dir: string, resourceId: string) =>
@@ -19,6 +43,7 @@ export const createDomainKnowledgePath = (dir: string, resourceId: string) =>
 const createDefaultKnowledge = (resourceId: string): DomainKnowledge => ({
 	resourceId,
 	scripts: [],
+	threads: {},
 });
 
 export const loadDomainKnowledge = async (
@@ -32,7 +57,10 @@ export const loadDomainKnowledge = async (
 		if (!parsed.resourceId) {
 			return createDefaultKnowledge(resourceId);
 		}
-		return parsed;
+		return {
+			...parsed,
+			threads: parsed.threads ?? {},
+		} satisfies DomainKnowledge;
 	} catch {
 		return createDefaultKnowledge(resourceId);
 	}
@@ -89,3 +117,69 @@ const escapeRegExp = (value: string) =>
 	value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const createExactPathRegex = (path: string) => `^${escapeRegExp(path)}$`;
+
+const ensureThreads = (knowledge: DomainKnowledge) => {
+	if (!knowledge.threads) {
+		knowledge.threads = {};
+	}
+	return knowledge.threads;
+};
+
+export const upsertThread = (
+	knowledge: DomainKnowledge,
+	thread: DomainThread,
+): DomainKnowledge => {
+	const threads = { ...ensureThreads(knowledge), [thread.id]: thread };
+	return {
+		...knowledge,
+		threads,
+	};
+};
+
+export const removeThread = (
+	knowledge: DomainKnowledge,
+	threadId: string,
+): DomainKnowledge => {
+	const threads = { ...ensureThreads(knowledge) };
+	delete threads[threadId];
+	return {
+		...knowledge,
+		threads,
+	};
+};
+
+export const appendThreadMessages = (
+	knowledge: DomainKnowledge,
+	{
+		threadId,
+		resourceId,
+		messages,
+		timestamps,
+	}: {
+		readonly threadId: string;
+		readonly resourceId: string;
+		readonly messages: DomainThreadMessage[];
+		readonly timestamps: {
+			readonly created?: string;
+			readonly updated?: string;
+		};
+	},
+): DomainKnowledge => {
+	const threads = ensureThreads(knowledge);
+	const existing = threads[threadId];
+	const createdAt =
+		existing?.createdAt ?? timestamps.created ?? new Date().toISOString();
+	const updatedAt = timestamps.updated ?? new Date().toISOString();
+	const nextMessages = existing
+		? [...existing.messages, ...messages]
+		: [...messages];
+	return upsertThread(knowledge, {
+		id: threadId,
+		resourceId,
+		title: existing?.title,
+		createdAt,
+		updatedAt,
+		metadata: existing?.metadata,
+		messages: nextMessages,
+	});
+};

@@ -1,5 +1,7 @@
 import { Agent } from "@mastra/core/agent";
 import type { MastraLanguageModel } from "@mastra/core/agent";
+import type { AgentMemoryOption } from "@mastra/core/agent";
+import type { MastraMemory } from "@mastra/core/memory";
 import type { RuntimeContext } from "@mastra/core/runtime-context";
 import { z } from "zod";
 
@@ -106,7 +108,13 @@ export const FALLBACK_SCRIPT = String.raw`(() => {
   return { title, price };
 })()`;
 
-export const createScraperAgent = (model: MastraLanguageModel) =>
+export const createScraperAgent = ({
+	model,
+	memory,
+}: {
+	readonly model: MastraLanguageModel;
+	readonly memory: MastraMemory;
+}) =>
 	new Agent({
 		name: "cheerio-extraction-writer",
 		instructions: {
@@ -115,6 +123,7 @@ export const createScraperAgent = (model: MastraLanguageModel) =>
 				"You are a senior scraping engineer. Generate a Cheerio script that returns an object with title and price fields when executed. Do not call external URLs. Prefer reusing a known working script when possible.",
 		},
 		model,
+		memory,
 		tools: {
 			loadFixtureHtml: loadFixtureHtmlTool,
 		},
@@ -159,10 +168,12 @@ export async function generateScriptWithAgent({
 	agent,
 	input,
 	runtimeContext,
+	memory,
 }: {
 	readonly agent: Agent;
 	readonly input: GenerateScriptInput;
 	readonly runtimeContext?: RuntimeContext;
+	readonly memory?: AgentMemoryOption;
 }): Promise<GenerateScriptResult> {
 	const fallback = createFallbackDecision(input.priorScript);
 	try {
@@ -180,6 +191,7 @@ export async function generateScriptWithAgent({
 					fallbackValue: fallback,
 				},
 				runtimeContext,
+				memory,
 			},
 		);
 

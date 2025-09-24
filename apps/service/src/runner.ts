@@ -3,20 +3,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { RuntimeContext } from "@mastra/core/runtime-context";
 
-import {
-	createScraperAgent,
-	generateScriptWithAgent,
-} from "./agent/scraper-agent";
+import { generateScriptWithAgent } from "./agent/scraper-agent";
 import { appendHistoryLine } from "./history/history";
-import { createScraperModel } from "./mastra/model/scraper-model";
-import {
-	createDomainKnowledgePath,
-	createExactPathRegex,
-	findMatchingScript,
-	loadDomainKnowledge,
-	saveDomainKnowledge,
-	upsertScriptEntry,
-} from "./memory/domain-knowledge";
+import { createMastraProject } from "./mastra/project";
+import type { PersistedScriptDetails } from "./resources/domain-knowledge.resource";
 import { ensureRuntimePaths, resolveRuntimePaths } from "./runtime/environment";
 import { loadFixtureHtmlTool } from "./tools/html";
 import { runCheerioScript } from "./utils/run-cheerio-script";
@@ -66,16 +56,26 @@ export async function runScraper(options: RunOptions): Promise<RunResult> {
 
 	await log("start", `Starting run for ${resourcePath}`);
 
-	const knowledge = await loadDomainKnowledge(
-		runtimePaths.domainKnowledgeDir,
-		resourceId,
-	);
-
-	const htmlResult = await loadFixtureHtmlTool.execute({
-		context: { url: options.url },
-		runtimeContext,
-		suspend: async () => undefined,
+	const project = createMastraProject({
+		runtimeRoot: runtimePaths.runtimeRoot,
 	});
+	const agent = project.mastra.getAgent("scraper");
+	const tools = await agent.getTools({ runtimeContext });
+	const htmlTool = (tools?.loadFixtureHtml ?? loadFixtureHtmlTool) as {
+		execute?: typeof loadFixtureHtmlTool.execute;
+	};
+	if (!htmlTool.execute) {
+		throw new Error("loadFixtureHtml tool is not available");
+	}
+
+	const htmlResult = await htmlTool.execute(
+		{
+			context: { url: options.url },
+			runtimeContext,
+			suspend: async () => undefined,
+		},
+		undefined,
+	);
 	await log(
 		"getHtml",
 		htmlResult.source === "fixture"
@@ -83,20 +83,31 @@ export async function runScraper(options: RunOptions): Promise<RunResult> {
 			: `Loaded generic HTML snippet (${htmlResult.html.length} chars)`,
 	);
 
-	const previousScript = findMatchingScript(knowledge, resourcePath);
-	const scriptDecision = previousScript
+	const persistedScript: PersistedScriptDetails | undefined =
+		await project.resources.domainKnowledge.loadScript(
+			resourceId,
+			resourcePath,
+		);
+	const threadId = `${resourceId}:${resourcePath}`;
+	const priorScript = persistedScript?.script;
+	const scriptDecision = persistedScript
 		? {
-				script: previousScript.script,
+				script: persistedScript.script,
 				reused: true,
-				notes: previousScript.notes ?? "Reused stored extractor script.",
+				notes: persistedScript.notes ?? "Reused stored extractor script.",
 			}
 		: await generateScriptWithAgent({
-				agent: createScraperAgent(createScraperModel()),
+				agent,
 				input: {
 					url: options.url,
 					html: htmlResult.html,
+					priorScript,
 				},
 				runtimeContext,
+				memory: {
+					thread: threadId,
+					resource: resourceId,
+				},
 			});
 
 	await log(
@@ -125,23 +136,32 @@ export async function runScraper(options: RunOptions): Promise<RunResult> {
 	);
 
 	if (!scriptDecision.reused && validation.ok) {
-		const updatedKnowledge = upsertScriptEntry(knowledge, {
-			pathRegex: createExactPathRegex(resourcePath),
+		await project.resources.domainKnowledge.saveScript({
+			resourceId,
+			path: resourcePath,
 			script: scriptDecision.script,
-			lastUpdatedAt: timestamp.toISOString(),
 			notes: scriptDecision.notes,
+			timestamp,
 		});
-		await saveDomainKnowledge(
-			runtimePaths.domainKnowledgeDir,
-			updatedKnowledge,
-		);
+		await project.memory.saveMessages({
+			messages: [
+				{
+					id: randomUUID(),
+					role: "assistant",
+					type: "text",
+					content: `Persisted extractor for ${resourcePath}`,
+					createdAt: timestamp,
+					threadId,
+					resourceId,
+				},
+			],
+			format: "v1",
+		});
 		await log("persistScript", `Persisted script for ${resourcePath}.`);
 	}
 
-	const domainKnowledgePath = createDomainKnowledgePath(
-		runtimePaths.domainKnowledgeDir,
-		resourceId,
-	);
+	const domainKnowledgePath =
+		project.resources.domainKnowledge.resolvePath(resourceId);
 
 	return {
 		script: scriptDecision.script,

@@ -31,11 +31,23 @@ describe("runScraper", () => {
 			const knowledge = JSON.parse(knowledgeRaw) as {
 				resourceId: string;
 				scripts: { pathRegex: string; script: string }[];
+				threads: Record<
+					string,
+					{
+						id: string;
+						messages: { type: string; content: unknown }[];
+					}
+				>;
 			};
 
 			expect(knowledge.resourceId).toBe("demo.mercator.sh");
 			expect(knowledge.scripts).toHaveLength(1);
 			expect(knowledge.scripts[0]?.script).toContain("cheerio.load");
+
+			const threadId = "demo.mercator.sh:/products/precision-pour-over-kettle";
+			const thread = knowledge.threads[threadId];
+			expect(thread).toBeDefined();
+			expect(thread?.messages.length).toBeGreaterThanOrEqual(1);
 
 			const historyRaw = await readFile(result.historyFile, "utf8");
 			const lines = historyRaw.trim().split("\n");
@@ -56,6 +68,12 @@ describe("runScraper", () => {
 			const second = await runScraper({ url: productUrl, runtimeRoot });
 			expect(second.reused).toBe(true);
 			expect(second.validation.ok).toBe(true);
+
+			const knowledgeRaw = await readFile(second.domainKnowledgePath, "utf8");
+			const knowledge = JSON.parse(knowledgeRaw) as {
+				threads?: Record<string, { messages: unknown[] }>;
+			};
+			expect(Object.values(knowledge.threads ?? {})).not.toHaveLength(0);
 
 			const historyRaw = await readFile(second.historyFile, "utf8");
 			const lines = historyRaw.trim().split("\n");

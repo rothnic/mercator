@@ -17,10 +17,18 @@ pnpm lint
 pnpm test
 ```
 
+To explore the Mastra studio, start the development server:
+
+```bash
+pnpm dev:agents
+```
+
+Mastra opens in your browser with the scraper agent, resources, and memory registered.
+
 To exercise the vertical slice manually, point the runner at a URL. The initial stub maps the Mercator demo fixture and falls back to a tiny generic snippet for unknown domains.
 
 ```bash
-pnpm dev:agents https://demo.mercator.sh/products/precision-pour-over-kettle
+pnpm demo:agents https://demo.mercator.sh/products/precision-pour-over-kettle
 ```
 
 The command prints a one-line summary plus the paths to the generated history JSONL file and the persisted domain knowledge record.
@@ -45,7 +53,7 @@ The current end-to-end loop intentionally mirrors the "Hello World" slice descri
 2. `apps/service/src/agent/scraper-agent.ts` asks a Mastra agent to produce a Cheerio IIFE string. When `OPENAI_API_KEY` is defined it calls OpenAI; otherwise it falls back to a deterministic script. Persisted scripts are still reused when available.
 3. `apps/service/src/utils/run-cheerio-script.ts` executes the IIFE inside a guarded sandbox.
 4. `apps/service/src/validation/validate-extraction.ts` checks for non-empty `{ title, price }` fields.
-5. `apps/service/src/memory/domain-knowledge.ts` stores scripts per domain/path so the second run can skip regeneration.
+5. `apps/service/src/resources/domain-knowledge.resource.ts` and `apps/service/src/memory/domain-knowledge.memory.ts` persist extractor scripts alongside Mastra thread history so the second run can reuse both the code and prior context.
 6. `apps/service/src/history/history.ts` appends concise JSONL lines for each step (start → tool call → codegen → execution → validation → persistence).
 7. `apps/service/src/runner.ts` ties everything together and exposes the CLI entry point.
 
