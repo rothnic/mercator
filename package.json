@@ -1,36 +1,40 @@
 {
-	"name": "mercator",
-	"version": "0.1.0",
-	"private": true,
-	"description": "Mercator monorepo for service, agents, and shared packages.",
-	"type": "module",
-	"packageManager": "pnpm@10.17.1",
-	"engines": {
-		"node": ">=18.18.0"
-	},
-	"scripts": {
-		"dev:agents": "pnpm --filter @mercator/service run demo",
-		"format": "biome check --formatter-enabled=true --linter-enabled=false --organize-imports-enabled=false .",
-		"format:fix": "biome format --write .",
-		"lint": "biome lint --reporter=summary .",
-		"lint:fix": "biome lint --write .",
-		"prepare": "husky",
-		"test": "vitest run --passWithNoTests",
-		"typecheck": "tsc -p tsconfig.json --noEmit"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "^1.9.4",
-		"@types/node": "^20.16.11",
-		"husky": "^9.1.7",
-		"lint-staged": "^16.2.0",
-		"typescript": "^5.6.3",
-		"vitest": "^2.1.4"
-	},
-	"lint-staged": {
-		"*.{js,ts,jsx,tsx,json,md}": ["biome check --write", "biome lint --write"]
-	},
-	"volta": {
-		"node": "20.18.0",
-		"pnpm": "10.17.1"
-	}
+  "name": "mercator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mercator monorepo for service, agents, and shared packages.",
+  "type": "module",
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "scripts": {
+    "dev:agents": "pnpm --filter @mercator/mastra run dev",
+    "demo:agents": "pnpm --filter @mercator/mastra run demo",
+    "format": "biome check --formatter-enabled=true --linter-enabled=false .",
+    "format:fix": "biome format --write .",
+    "lint": "biome lint --reporter=summary .",
+    "lint:fix": "biome lint --write .",
+    "prepare": "husky",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.4",
+    "@types/node": "^20.16.11",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx,json,md}": [
+      "biome check --write",
+      "biome lint --write"
+    ]
+  },
+  "volta": {
+    "node": "20.18.0",
+    "pnpm": "10.17.1"
+  }
 }

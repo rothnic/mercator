@@ -1,42 +1,34 @@
-# Iteration I01 — Stubbed MVP Loop
+# Iteration I01 — Mastra Bootstrap
 
 ## Goal
-Deliver the smallest possible Mastra-powered loop: a stubbed `getHtml` tool, a scraper agent that emits a Cheerio IIFE, a runner that executes and validates the script, and lightweight persistence for domain knowledge + history. Every follow-up slice builds on top of this baseline.
+Stand up a clean Mastra workspace that mirrors the manual-install docs, opts into ai-sdk v5, and proves the tool/agent wiring works end to end. Future slices can then re-introduce product-specific behavior on top of this baseline.
 
 ## Milestones
 
-1. **Baseline Skeleton** – Stubbed tool, deterministic scraper agent, minimal runner, history + domain knowledge persistence, and tests proving the second run reuses the stored script. ✅
-2. **Script Execution Safety** – Replace the stubbed extraction result with real Cheerio execution guarded by sanitizers and timeouts. ⬜
-3. **Validation Hardening** – Introduce schema-based validation (Zod or equivalent) and surface concise feedback when fields are missing. ⬜
-4. **Hinting & Memory** – Store short hints in structured working memory and feed them into the scraper prompt before regeneration. ⬜
-5. **Second Fixture** – Add an alternate product layout and measure reuse vs. regeneration attempts. ⬜
+1. **Workspace Reset** – Replace the legacy service app with `apps/mastra`, expose `mastra dev`, and ship a deterministic weather tool + agent. ✅
+2. **Backlog Realignment** – Rewrite the iteration docs to reflect the new baseline and scope the next slices. ⬜
+3. **Domain Tooling Plan** – Document how product scraping, persistence, and validation will return (leverage fixtures + shared utilities). ⬜
 
 ## Feature Backlog
 
 | Priority | Task ID | Description | Deliverables | Status | Notes |
 |----------|---------|-------------|--------------|--------|-------|
-| 1 | I01-F1-T1 | Collapse the previous orchestration surface into the stub-first runner with `getHtml`, `ScraperAgent`, history logging, and domain knowledge persistence. | `apps/service/src` rebuilt around the new runner + tests covering the reuse path. | Done | Ensures the repo starts from a deterministic walking skeleton. |
-| 2 | I01-F1-T2 | Document the new vertical-slice plan and align README/backlog/quality notes with the simplified approach. | Updated README, backlog, quality report, and `docs/plan/stubs-first-vertical-slice.md`. | Done | Keeps future slices consistent with the reset strategy. |
-| 3 | I01-F2-T1 | Execute the generated IIFE against Cheerio (instead of returning a stubbed object) with a simple sanitizer + timeout. | `runCheerioScript` hardened, tests covering success + failure paths. | Todo | Mirrors Milestone M1 in the plan. |
-| 4 | I01-F2-T2 | Replace the minimal validator with a Zod schema that reports concise issues. | Validation module upgraded, tests documenting failure messages. | Todo | Aligns with plan Milestone M2. |
-| 5 | I01-F2-T3 | Persist short hints/notes in structured memory and feed them into the scraper prompt when regenerating. | Memory helpers + prompt wiring, tests covering reuse with hints. | Todo | Plan Milestones M3–M4. |
-| 6 | I01-F2-T4 | Add the second fixture (`amazon_dp_alt.html`) and measure whether the stored script generalizes or needs regeneration. | Fixture + tests that run the loop twice across both layouts. | Todo | Plan Milestone M5. |
+| 1 | I01-F1-T1 | Create `apps/mastra` with ai-sdk v5 compatible tooling and retire the legacy service package. | New package + README, updated root scripts, studio launches successfully. | Done | Ensures everyone starts from the same minimal baseline. |
+| 2 | I01-F1-T2 | Update the iteration/backlog docs to describe the new workspace and upcoming slices. | Revised `docs/tasks/*` entries. | Todo | Blocks onboarding new workstreams. |
+| 3 | I01-F2-T1 | Sketch the plan for re-introducing scraping agents, RAG resources, and validation. | Draft in `docs/plan/iterations.md` + linked tasks. | Todo | Keeps future slices coordinated. |
 
 ## Acceptance Criteria
 
-- The runner can be executed locally without external services and produces deterministic history + domain knowledge artifacts.
-- Running the scraper twice against the same fixture reuses the stored script and passes validation both times.
-- Documentation, backlog, and quality notes stay in sync with the implemented behavior.
-- Follow-up slices (execution safety, validation, hints, alternate fixtures) extend the loop end-to-end rather than introducing partially wired components.
+- `pnpm dev:agents` boots Mastra Studio with the weather agent visible.
+- `pnpm demo:agents` exercises the CLI entry point without requiring the studio UI.
+- Documentation and backlog entries reference `apps/mastra` instead of the removed service package.
 
 ## Agent Workflow Snapshot
 
-The baseline workflow executes entirely within `apps/service/src/runner.ts`:
+The baseline workflow lives entirely inside `apps/mastra/src`:
 
-1. Load or initialize domain knowledge for the URL’s hostname.
-2. Fetch HTML from the stubbed `getHtml` tool.
-3. Ask the scraper agent for a Cheerio IIFE (reusing a stored script when present).
-4. Execute the script, validate `{ title, price }`, and persist the script if validation succeeds.
-5. Append one JSONL history line per step so the run is auditable.
+1. The `get-weather` tool returns a deterministic summary for the requested location.
+2. The weather agent calls the tool whenever the user asks about conditions.
+3. The exported Mastra instance wires the agent into the CLI so both the studio and the demo script share the same configuration.
 
-Future milestones will expand this loop with real HTML execution, structured validation feedback, hints, additional fixtures, and eventually a multi-agent workflow. Each increment should be reversible and independently verifiable.
+Future milestones will layer in the product-specific scraping pieces as standalone slices once the backlog realignment is complete.

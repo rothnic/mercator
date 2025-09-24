@@ -1,5 +1,7 @@
 # Mastra Scraper — Stubs-First Vertical Slice Plan
 
+> **Status:** Legacy reference. The active workspace now lives in `apps/mastra` with a weather agent baseline. Update or replace this plan once the backlog realignment (Iteration I01) is complete.
+
 > **Goal:** Build a tiny end-to-end proof using **Mastra** with one agent, one stubbed tool, and minimal memory — then iterate in tiny, reversible slices. Avoid big-bang foundations. Prove the loop works first, expand later.
 
 ---

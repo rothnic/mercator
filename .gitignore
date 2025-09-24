@@ -1,9 +1,10 @@
 node_modules
 .pnpm-store
 .env
-apps/service/.env
-apps/service/mastra.db
-apps/service/.runtime
+apps/mastra/.env
+apps/mastra/mastra.db
+apps/mastra/.mastra
+apps/mastra/.runtime
 .mastra
 coverage
 dist
