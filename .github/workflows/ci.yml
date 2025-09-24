@@ -15,19 +15,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v3
+      - name: Set up Node.js and pnpm with Volta
+        uses: joshuakgoldberg/setup-node-volta@v1
         with:
-          version: 10.5.2
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: volta
+          pnpm-version: volta
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Run typecheck
+        run: pnpm run typecheck
+
+      - name: Run format check
+        run: pnpm run format
 
       - name: Run lint
         run: pnpm lint

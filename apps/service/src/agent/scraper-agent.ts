@@ -1,13 +1,13 @@
 export interface GenerateScriptParams {
-  html: string;
-  priorScript?: string;
-  hints?: readonly string[];
+	html: string;
+	priorScript?: string;
+	hints?: readonly string[];
 }
 
 export interface GenerateScriptResult {
-  script: string;
-  reused: boolean;
-  notes: string;
+	script: string;
+	reused: boolean;
+	notes: string;
 }
 
 const DEFAULT_SCRIPT = String.raw`(() => {
@@ -93,19 +93,19 @@ const DEFAULT_SCRIPT = String.raw`(() => {
 })()`;
 
 export class ScraperAgent {
-  generateScript(params: GenerateScriptParams): Promise<GenerateScriptResult> {
-    if (params.priorScript) {
-      return Promise.resolve({
-        script: params.priorScript,
-        reused: true,
-        notes: 'Reused previously stored script.'
-      });
-    }
+	generateScript(params: GenerateScriptParams): Promise<GenerateScriptResult> {
+		if (params.priorScript) {
+			return Promise.resolve({
+				script: params.priorScript,
+				reused: true,
+				notes: "Reused previously stored script.",
+			});
+		}
 
-    return Promise.resolve({
-      script: DEFAULT_SCRIPT,
-      reused: false,
-      notes: 'Generated baseline Cheerio extractor script.'
-    });
-  }
+		return Promise.resolve({
+			script: DEFAULT_SCRIPT,
+			reused: false,
+			notes: "Generated baseline Cheerio extractor script.",
+		});
+	}
 }
