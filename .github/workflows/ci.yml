@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js and pnpm with Volta
         uses: volta-cli/action@v4
 
-      - name: Install pnpm with Volta
+      - name: Install node with Volta
         run: volta install node
 
       - name: Install pnpm with Volta
