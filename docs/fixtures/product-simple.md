@@ -66,7 +66,7 @@ image processing.
 ## Rule Configuration Seed
 
 The orchestrator no longer hard-codes selectors or chunk mappings for the fixture. Instead a rule configuration is
-derived from this fixture and stored alongside the service tests (`apps/service/src/orchestrator/__fixtures__/product-simple.ts`).
+derived from this fixture and will live alongside the Mastra tests (the previous location was `apps/service/src/orchestrator/__fixtures__/product-simple.ts`).
 That seed describes:
 
 - the expected `Product` snapshot persisted in the rule repository,

@@ -1,68 +1,58 @@
 # Mercator
 
-Mercator now ships as a **stub-first Mastra playground**. The goal is to keep the smallest possible walking skeleton in place: one Mastra tool that returns deterministic HTML from fixtures, one scraper agent that emits a Cheerio script (using a live OpenAI model when available), a runner that executes and validates the script, and tiny persistence layers for history and domain knowledge. Everything else will be layered on in incremental, end-to-end slices.
-
-The detailed roadmap for those slices lives in [docs/plan/stubs-first-vertical-slice.md](docs/plan/stubs-first-vertical-slice.md). Start there before expanding the surface area.
+Mercator now anchors a **minimal Mastra workspace** so new slices can be layered on without inheriting legacy orchestration code. The repository ships a single agent, a single tool, and the standard Mastra dev server wiring. From here we can iterate toward the richer product-oriented flows once the baseline is stable.
 
 ## Getting Started
+
+Install dependencies:
 
 ```bash
 pnpm install
 ```
 
-Run the lint and test suites before opening a pull request:
+Create a `.env` file inside `apps/mastra` and provide an API key supported by the Vercel AI SDK (OpenAI is the default):
 
 ```bash
-pnpm lint
-pnpm test
+OPENAI_API_KEY=sk-your-key
 ```
 
-To explore the Mastra studio, start the development server:
+## Local Development
+
+Launch the Mastra playground:
 
 ```bash
 pnpm dev:agents
 ```
 
-Mastra opens in your browser with the scraper agent, resources, and memory registered.
+The command filters down to `apps/mastra` and runs `mastra dev`, which boots the studio with the bundled weather agent and tool.
 
-To exercise the vertical slice manually, point the runner at a URL. The initial stub maps the Mercator demo fixture and falls back to a tiny generic snippet for unknown domains.
+Run the deterministic demo script without opening the studio:
 
 ```bash
-pnpm demo:agents https://demo.mercator.sh/products/precision-pour-over-kettle
+pnpm demo:agents Paris
 ```
-
-The command prints a one-line summary plus the paths to the generated history JSONL file and the persisted domain knowledge record.
 
 ## Repository Layout
 
 ```
 apps/
-  service/       # Minimal Mastra playground with runner, agent, tools, and tests
-fixtures/        # HTML fixture data consumed by the HTML utilities/tool
+  mastra/        # Mastra workspace with agents, tools, and config
+fixtures/        # Legacy fixture data kept for future slices
 packages/
-  html-utils/    # Shared helpers for resolving fixture HTML
+  html-utils/    # Shared helpers (currently unused, retained for upcoming work)
 ```
 
-Runtime artifacts (history, domain knowledge) are written to `apps/service/.runtime/` and are ignored by Git.
+## Current Slice
 
-## Development Loop
+The base Mastra project mirrors the manual setup instructions from the Mastra docs with ai-sdk v5 compatibility applied:
 
-The current end-to-end loop intentionally mirrors the "Hello World" slice described in the plan:
+1. `apps/mastra/src/mastra/tools/weather-tool.ts` defines a `get-weather` tool with a simple Zod contract.
+2. `apps/mastra/src/mastra/agents/weather-agent.ts` registers a weather agent that calls the tool when asked about conditions.
+3. `apps/mastra/src/mastra/index.ts` exports the `Mastra` instance consumed by the CLI server.
+4. `apps/mastra/src/demo.ts` exposes a small entry point used by `pnpm demo:agents` to call the agent from the terminal.
 
-1. `apps/service/src/tools/html/load-fixture-html.tool.ts` returns fixture HTML (or a generic fallback) for a requested URL via the shared utility package.
-2. `apps/service/src/agent/scraper-agent.ts` asks a Mastra agent to produce a Cheerio IIFE string. When `OPENAI_API_KEY` is defined it calls OpenAI; otherwise it falls back to a deterministic script. Persisted scripts are still reused when available.
-3. `apps/service/src/utils/run-cheerio-script.ts` executes the IIFE inside a guarded sandbox.
-4. `apps/service/src/validation/validate-extraction.ts` checks for non-empty `{ title, price }` fields.
-5. `apps/service/src/resources/domain-knowledge.resource.ts` and `apps/service/src/memory/domain-knowledge.memory.ts` persist extractor scripts alongside Mastra thread history so the second run can reuse both the code and prior context.
-6. `apps/service/src/history/history.ts` appends concise JSONL lines for each step (start → tool call → codegen → execution → validation → persistence).
-7. `apps/service/src/runner.ts` ties everything together and exposes the CLI entry point.
+## Next Steps
 
-`apps/service/src/runner.test.ts` proves the loop works by running the scraper twice against the kettle fixture: the first run generates and persists a script, and the second run reuses it.
-
-## Current State & Next Steps
-
-- Firecrawl, Playwright, and the broader agent orchestration stack have been removed from the critical path until the stubbed loop hardens.
-- All follow-up work (executing the script against real HTML, adding hints, introducing additional tools, layering in multi-agent workflows, etc.) should be implemented as **tiny vertical slices** that extend this baseline end-to-end.
-- Open questions, experiments, and backlog items belong in the plan document and the iteration task files—update them whenever a slice lands so future contributors can continue iterating safely.
-
-If a change touches the agent/tool/memory loop, update the README and plan to match the new reality.
+- Expand the workspace with domain-specific agents once the weather example is confirmed working end to end.
+- Re-introduce shared utilities (fixtures, scraping helpers) as focused slices rather than all at once.
+- Update the backlog files in `docs/tasks/` as new slices land so future contributors can follow the plan.
