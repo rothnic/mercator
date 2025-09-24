@@ -1,12 +1,7 @@
 {
-	"extends": "./tsconfig.base.json",
-	"compilerOptions": {
-		"noEmit": true
-	},
-	"include": [
-		"apps/**/*.ts",
-		"apps/**/*.tsx",
-		"packages/**/*.ts",
-		"vitest.workspace.ts"
-	]
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "vitest.workspace.ts"]
 }
