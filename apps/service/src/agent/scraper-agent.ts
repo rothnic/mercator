@@ -1,16 +1,30 @@
-export interface GenerateScriptParams {
-	html: string;
-	priorScript?: string;
-	hints?: readonly string[];
+import { Agent } from "@mastra/core/agent";
+import type { MastraLanguageModel } from "@mastra/core/agent";
+import type { RuntimeContext } from "@mastra/core/runtime-context";
+import { z } from "zod";
+
+import { loadFixtureHtmlTool } from "../tools/html";
+
+export interface GenerateScriptInput {
+	readonly url: string;
+	readonly html: string;
+	readonly priorScript?: string;
+	readonly hints?: readonly string[];
 }
 
 export interface GenerateScriptResult {
-	script: string;
-	reused: boolean;
-	notes: string;
+	readonly script: string;
+	readonly reused: boolean;
+	readonly notes: string;
 }
 
-const DEFAULT_SCRIPT = String.raw`(() => {
+const ScriptOutputSchema = z.object({
+	script: z.string().min(1, "script must not be empty"),
+	reused: z.boolean().optional().default(false),
+	notes: z.string().optional().default(""),
+});
+
+export const FALLBACK_SCRIPT = String.raw`(() => {
   const $ = cheerio.load(html);
   const normalize = (value) => (typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '');
   const pickText = (selectors) => {
@@ -92,20 +106,102 @@ const DEFAULT_SCRIPT = String.raw`(() => {
   return { title, price };
 })()`;
 
-export class ScraperAgent {
-	generateScript(params: GenerateScriptParams): Promise<GenerateScriptResult> {
-		if (params.priorScript) {
-			return Promise.resolve({
-				script: params.priorScript,
-				reused: true,
-				notes: "Reused previously stored script.",
-			});
-		}
+export const createScraperAgent = (model: MastraLanguageModel) =>
+	new Agent({
+		name: "cheerio-extraction-writer",
+		instructions: {
+			role: "system",
+			content:
+				"You are a senior scraping engineer. Generate a Cheerio script that returns an object with title and price fields when executed. Do not call external URLs. Prefer reusing a known working script when possible.",
+		},
+		model,
+		tools: {
+			loadFixtureHtml: loadFixtureHtmlTool,
+		},
+		defaultGenerateOptions: {
+			maxSteps: 4,
+		},
+	});
 
-		return Promise.resolve({
-			script: DEFAULT_SCRIPT,
-			reused: false,
-			notes: "Generated baseline Cheerio extractor script.",
-		});
+const buildUserPrompt = ({
+	html,
+	priorScript,
+	hints,
+	url,
+}: GenerateScriptInput) => {
+	const hintSection =
+		hints && hints.length > 0
+			? `\nHints:\n${hints.map((hint, index) => `${index + 1}. ${hint}`).join("\n")}`
+			: "";
+	const priorSection = priorScript
+		? `A prior script is available. Reuse it only if it already satisfies the requirements without modification.\n\nPrior Script:\n${priorScript}`
+		: "No prior script is available.";
+
+	return `Target URL: ${url}\n${priorSection}\n${hintSection}\n\nHTML:\n\n\`\`\`html\n${html}\n\`\`\``;
+};
+
+const createFallbackDecision = (priorScript?: string): GenerateScriptResult => {
+	if (priorScript) {
+		return {
+			script: priorScript,
+			reused: true,
+			notes: "Reused previously stored extractor script.",
+		};
+	}
+	return {
+		script: FALLBACK_SCRIPT,
+		reused: false,
+		notes: "Generated deterministic fallback Cheerio extractor.",
+	};
+};
+
+export async function generateScriptWithAgent({
+	agent,
+	input,
+	runtimeContext,
+}: {
+	readonly agent: Agent;
+	readonly input: GenerateScriptInput;
+	readonly runtimeContext?: RuntimeContext;
+}): Promise<GenerateScriptResult> {
+	const fallback = createFallbackDecision(input.priorScript);
+	try {
+		const response = await agent.generate(
+			[
+				{
+					role: "user",
+					content: buildUserPrompt(input),
+				},
+			],
+			{
+				structuredOutput: {
+					schema: ScriptOutputSchema,
+					errorStrategy: "fallback",
+					fallbackValue: fallback,
+				},
+				runtimeContext,
+			},
+		);
+
+		const object = response.object ?? fallback;
+		const script = object.script.trim();
+		const reused = object.reused ?? false;
+		const notes = object.notes?.trim() ?? "";
+
+		return {
+			script,
+			reused,
+			notes:
+				notes ||
+				(reused
+					? "Reused script supplied as context."
+					: "Script provided by LLM."),
+		};
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : "unexpected error";
+		return {
+			...fallback,
+			notes: `${fallback.notes} (LLM unavailable: ${reason})`,
+		};
 	}
 }

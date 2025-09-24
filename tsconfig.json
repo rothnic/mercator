@@ -3,5 +3,10 @@
 	"compilerOptions": {
 		"noEmit": true
 	},
-	"include": ["apps/**/*.ts", "apps/**/*.tsx", "vitest.workspace.ts"]
+	"include": [
+		"apps/**/*.ts",
+		"apps/**/*.tsx",
+		"packages/**/*.ts",
+		"vitest.workspace.ts"
+	]
 }

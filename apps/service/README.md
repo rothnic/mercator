@@ -18,7 +18,7 @@ Copy `.env.example` to `.env` and set the required keys:
 cp .env.example .env
 ```
 
-- `OPENAI_API_KEY` — API key for the configured OpenAI model(s).
+- `OPENAI_API_KEY` — API key for the configured OpenAI model(s). Optional; when omitted the deterministic fallback model is used.
 - `DATABASE_URL` — Connection string for LibSQL (defaults to an on-disk SQLite database).
 - `DATABASE_AUTH_TOKEN` — Optional auth token for remote LibSQL instances.
 

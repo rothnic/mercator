@@ -11,7 +11,7 @@ The repository has been reset to a **stub-first vertical slice** so new contribu
 ## Build Health
 
 - `pnpm lint` and `pnpm test` succeed locally after the reset. The service package exposes `pnpm demo` (wired to the root `pnpm dev:agents`) so the walking skeleton can be exercised without extra setup.
-- No external services are required. The stubbed `getHtml` tool reads fixture HTML directly from the repo, and runtime artifacts live under `apps/service/.runtime/`.
+- The Mastra `loadFixtureHtml` tool reads fixture HTML directly from the repo via the shared `@mercator/html-utils` package, and runtime artifacts live under `apps/service/.runtime/`. Supplying `OPENAI_API_KEY` enables live script synthesis; otherwise the deterministic fallback model keeps the loop self-contained.
 - Type checking still runs in no-emit mode. Once the execution slice grows, revisit `pnpm typecheck` and decide whether to re-enable stricter settings.
 
 ## Current Risks & Follow-Ups

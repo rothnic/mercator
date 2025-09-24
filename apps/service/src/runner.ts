@@ -1,8 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { ScraperAgent } from "./agent/scraper-agent";
+import { RuntimeContext } from "@mastra/core/runtime-context";
+
+import {
+	createScraperAgent,
+	generateScriptWithAgent,
+} from "./agent/scraper-agent";
 import { appendHistoryLine } from "./history/history";
+import { createScraperModel } from "./mastra/model/scraper-model";
 import {
 	createDomainKnowledgePath,
 	createExactPathRegex,
@@ -12,7 +18,7 @@ import {
 	upsertScriptEntry,
 } from "./memory/domain-knowledge";
 import { ensureRuntimePaths, resolveRuntimePaths } from "./runtime/environment";
-import { getHtml } from "./tools/get-html";
+import { loadFixtureHtmlTool } from "./tools/html";
 import { runCheerioScript } from "./utils/run-cheerio-script";
 import { validateExtraction } from "./validation/validate-extraction";
 
@@ -42,6 +48,7 @@ export async function runScraper(options: RunOptions): Promise<RunResult> {
 	const resourcePath = url.pathname || "/";
 	const runtimePaths = resolveRuntimePaths(options.runtimeRoot);
 	await ensureRuntimePaths(runtimePaths);
+	const runtimeContext = new RuntimeContext();
 
 	let step = 0;
 	const log = async (action: string, outcome: string) => {
@@ -64,7 +71,11 @@ export async function runScraper(options: RunOptions): Promise<RunResult> {
 		resourceId,
 	);
 
-	const htmlResult = await getHtml({ url: options.url });
+	const htmlResult = await loadFixtureHtmlTool.execute({
+		context: { url: options.url },
+		runtimeContext,
+		suspend: async () => undefined,
+	});
 	await log(
 		"getHtml",
 		htmlResult.source === "fixture"
@@ -73,17 +84,26 @@ export async function runScraper(options: RunOptions): Promise<RunResult> {
 	);
 
 	const previousScript = findMatchingScript(knowledge, resourcePath);
-	const agent = new ScraperAgent();
-	const scriptDecision = await agent.generateScript({
-		html: htmlResult.html,
-		priorScript: previousScript?.script,
-	});
+	const scriptDecision = previousScript
+		? {
+				script: previousScript.script,
+				reused: true,
+				notes: previousScript.notes ?? "Reused stored extractor script.",
+			}
+		: await generateScriptWithAgent({
+				agent: createScraperAgent(createScraperModel()),
+				input: {
+					url: options.url,
+					html: htmlResult.html,
+				},
+				runtimeContext,
+			});
 
 	await log(
 		"generateScript",
 		scriptDecision.reused
 			? "Reused stored extractor script."
-			: "Synthesized new Cheerio extractor script.",
+			: scriptDecision.notes || "Synthesized new Cheerio extractor script.",
 	);
 
 	const execution = runCheerioScript({

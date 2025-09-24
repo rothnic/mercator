@@ -1,7 +1,7 @@
 # Iteration I01 — Stubbed MVP Loop
 
 ## Goal
-Deliver the smallest possible Mastra-powered loop: a stubbed `getHtml` tool, a scraper agent that emits a Cheerio IIFE, a runner that executes and validates the script, and lightweight persistence for domain knowledge + history. Every follow-up slice builds on top of this baseline.
+Deliver the smallest possible Mastra-powered loop: a `loadFixtureHtml` tool backed by shared HTML utilities, a Mastra scraper agent that emits a Cheerio IIFE, a runner that executes and validates the script, and lightweight persistence for domain knowledge + history. Every follow-up slice builds on top of this baseline.
 
 ## Milestones
 
@@ -34,8 +34,8 @@ Deliver the smallest possible Mastra-powered loop: a stubbed `getHtml` tool, a s
 The baseline workflow executes entirely within `apps/service/src/runner.ts`:
 
 1. Load or initialize domain knowledge for the URL’s hostname.
-2. Fetch HTML from the stubbed `getHtml` tool.
-3. Ask the scraper agent for a Cheerio IIFE (reusing a stored script when present).
+2. Fetch HTML from the Mastra `loadFixtureHtml` tool (which wraps the shared fixture utilities).
+3. Ask the scraper agent—backed by a live OpenAI model when available, or a deterministic fallback otherwise—for a Cheerio IIFE (reusing a stored script when present).
 4. Execute the script, validate `{ title, price }`, and persist the script if validation succeeds.
 5. Append one JSONL history line per step so the run is auditable.
 
