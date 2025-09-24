@@ -1,34 +1,18 @@
 {
-  "name": "@mercator/service",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "mastra dev --dir src/mastra",
-    "build": "mastra build --dir src/mastra",
-    "start": "mastra start --dir src/mastra",
-    "lint": "eslint src --ext .ts",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "@ai-sdk/openai": "^2.0.30",
-    "@mercator/agent-tools": "workspace:*",
-    "@mercator/core": "workspace:*",
-    "@mercator/fixtures": "workspace:*",
-    "@mercator/recipe-store": "workspace:*",
-    "cheerio": "^1.0.0",
-    "@mastra/core": "^0.16.3",
-    "@mastra/libsql": "^0.14.1",
-    "@mastra/loggers": "^0.10.11",
-    "@mastra/memory": "^0.15.1",
-    "commander": "^12.1.0",
-    "dotenv": "^16.4.5",
-    "fastify": "^4.28.1",
-    "zod": "^3.25.3"
-  },
-  "devDependencies": {
-    "@types/node": "^20.16.11",
-    "mastra": "^0.12.3",
-    "typescript": "^5.6.3"
-  }
+	"name": "@mercator/service",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"demo": "tsx src/runner.ts",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"cheerio": "^1.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^20.16.11",
+		"tsx": "^4.19.2",
+		"typescript": "^5.6.3"
+	}
 }

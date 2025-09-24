@@ -1,72 +1,58 @@
 # Mercator
 
-Mercator is an adaptive extraction platform that generates reusable recipes for e-commerce pages and executes them deterministically. The repository is organized as a pnpm-managed TypeScript monorepo that will house the headless service, SDK, reviewer UI, shared agent tooling, and supporting fixtures.
+Mercator now ships as a **stub-first Mastra playground**. The goal is to keep the smallest possible walking skeleton in place: one tool that returns deterministic HTML, one scraper agent that emits a Cheerio script, a runner that executes and validates the script, and tiny persistence layers for history and domain knowledge. Everything else will be layered on in incremental, end-to-end slices.
 
-## Getting Oriented
+The detailed roadmap for those slices lives in [docs/plan/stubs-first-vertical-slice.md](docs/plan/stubs-first-vertical-slice.md). Start there before expanding the surface area.
 
-1. Start with the [Product Vision](docs/product/vision.md) for durable goals and deliverables.
-2. Review the [System Overview](docs/architecture/system-overview.md) to understand planned components and package layout.
-3. Check the [Iteration Roadmap](docs/plan/iterations.md) to see how functionality will roll out.
-4. Pick the next task from the [Task Backlog](docs/tasks/index.md) and follow the [Task Working Agreement](docs/tasks/README.md).
-5. Consult the [Architecture Decisions](docs/decisions/README.md) for rationale behind major choices.
-
-## Monorepo Setup
-
-This workspace uses pnpm for dependency management and shared tooling.
+## Getting Started
 
 ```bash
 pnpm install
 ```
 
-The root `package.json` exposes shared scripts:
-
-| Command | Description |
-|---------|-------------|
-| `pnpm lint` | Run ESLint with the shared configuration across all packages. |
-| `pnpm test` | Execute the Vitest test runner (no suites yet). |
-| `pnpm typecheck` | Perform a TypeScript project-wide type check. |
-| `pnpm format` | Verify formatting with Prettier. |
-| `pnpm dev:agents` | Start the Mastra development playground for the service app. |
-
-## Continuous Integration
-
-Run the lint and test scripts locally before opening a pull request to mirror continuous integration expectations:
+Run the lint and test suites before opening a pull request:
 
 ```bash
 pnpm lint
 pnpm test
 ```
 
-GitHub Actions runs the same commands on every push and pull request via `.github/workflows/ci.yml`.
+To exercise the vertical slice manually, point the runner at a URL. The initial stub maps the Mercator demo fixture and falls back to a tiny generic snippet for unknown domains.
 
-Each package or app can add additional scripts that are executed via `pnpm --filter`.
+```bash
+pnpm dev:agents https://demo.mercator.sh/products/precision-pour-over-kettle
+```
+
+The command prints a one-line summary plus the paths to the generated history JSONL file and the persisted domain knowledge record.
 
 ## Repository Layout
 
 ```
 apps/
-  service/        # Mastra-powered agent orchestration playground
-packages/         # Shared libraries will live here
+  service/       # Minimal Mastra playground with runner, agent, tool, and tests
+fixtures/        # HTML fixture data used by the stubbed getHtml tool
 ```
 
-Additional apps (e.g., `reviewer-ui`) and packages (`core`, `sdk`, `agent-tools`) will be added as future tasks land.
+Runtime artifacts (history, domain knowledge) are written to `apps/service/.runtime/` and are ignored by Git.
 
-## Contributing
+## Development Loop
 
-- Follow the task priority order; do not skip ahead without approval.
-- Update task status directly in the task tables when starting or finishing work.
-- Record new architectural choices as ADRs in `docs/decisions/`.
-- Keep documentation synchronized with implemented behavior to minimize churn.
-- Do not mark a task complete until `pnpm lint` and `pnpm test` succeed locally. Track `pnpm typecheck` progress in the backlog and run it once the outstanding TypeScript debt is resolved.
+The current end-to-end loop intentionally mirrors the "Hello World" slice described in the plan:
 
-## Current State & Limitations
+1. `apps/service/src/tools/get-html.ts` returns fixture HTML (or a generic fallback) for a requested URL.
+2. `apps/service/src/agent/scraper-agent.ts` produces a deterministic Cheerio IIFE string. The stub reuses persisted scripts when available.
+3. `apps/service/src/utils/run-cheerio-script.ts` executes the IIFE inside a guarded sandbox.
+4. `apps/service/src/validation/validate-extraction.ts` checks for non-empty `{ title, price }` fields.
+5. `apps/service/src/memory/domain-knowledge.ts` stores scripts per domain/path so the second run can skip regeneration.
+6. `apps/service/src/history/history.ts` appends concise JSONL lines for each step (start → tool call → codegen → execution → validation → persistence).
+7. `apps/service/src/runner.ts` ties everything together and exposes the CLI entry point.
 
-Mercator now ingests arbitrary product URLs by calling Firecrawl (when `FIRECRAWL_API_KEY` is configured) to collect HTML, markdown, screenshot metadata, and an OCR transcript. The ingestion step logs when the remote service is unavailable and falls back to direct HTML fetches so developers can still exercise the workflow locally.
+`apps/service/src/runner.test.ts` proves the loop works by running the scraper twice against the kettle fixture: the first run generates and persists a script, and the second run reuses it.
 
-The three-pass workflow then produces reusable recipes:
+## Current State & Next Steps
 
-1. The Mastra-backed recipe agent invokes a deterministic `generate_recipe` tool that seeds target data from the ingested transcript (or markdown fallback), inspects live HTML via the shared tools, and iteratively refines selectors until the scraped output matches the evolving target data. Selector synthesis relies on heuristics that search for attribute hints and text tokens—no hard-coded fixture selectors remain. Iteration logs and tool usage are captured in the orchestration response, and orchestration now logs rich error details when agent passes fail.
-2. Newly generated recipes are stored as drafts together with their domain/path metadata. Once promoted, subsequent `/parse` or CLI execution requests reuse the stored recipe without invoking the agent.
-3. If no stable recipe exists for the requested domain/path, `/parse` returns a clear error so the caller can trigger the agent workflow first.
+- Firecrawl, Playwright, and the broader agent orchestration stack have been removed from the critical path until the stubbed loop hardens.
+- All follow-up work (executing the script against real HTML, adding hints, introducing additional tools, layering in multi-agent workflows, etc.) should be implemented as **tiny vertical slices** that extend this baseline end-to-end.
+- Open questions, experiments, and backlog items belong in the plan document and the iteration task files—update them whenever a slice lands so future contributors can continue iterating safely.
 
-The MVP still focuses on deterministic fixture data for assertions, and the reviewer UI remains a future iteration. Budget enforcement guards the agent loop, but observability, canarying, richer OCR of screenshots, and reviewer tooling continue to live in Iteration I02.
+If a change touches the agent/tool/memory loop, update the README and plan to match the new reality.
