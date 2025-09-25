@@ -9,7 +9,8 @@
 		"node": ">=18.18.0"
 	},
 	"scripts": {
-		"dev:agents": "pnpm --filter @mercator/service run demo",
+		"dev:agents": "pnpm --filter @mercator/mastra run dev",
+		"demo:agents": "pnpm --filter @mercator/mastra run demo",
 		"format": "biome check --formatter-enabled=true --linter-enabled=false --organize-imports-enabled=false .",
 		"format:fix": "biome format --write .",
 		"lint": "biome lint --reporter=summary .",

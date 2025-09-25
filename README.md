@@ -1,60 +1,61 @@
 # Mercator
 
-Mercator now ships as a **stub-first Mastra playground**. The goal is to keep the smallest possible walking skeleton in place: one Mastra tool that returns deterministic HTML from fixtures, one scraper agent that emits a Cheerio script (using a live OpenAI model when available), a runner that executes and validates the script, and tiny persistence layers for history and domain knowledge. Everything else will be layered on in incremental, end-to-end slices.
-
-The detailed roadmap for those slices lives in [docs/plan/stubs-first-vertical-slice.md](docs/plan/stubs-first-vertical-slice.md). Start there before expanding the surface area.
+Mercator now anchors a **Mastra extractor workspace** that demonstrates agents, memory, resources, and tools working together on ai-sdk v5. The repository ships a single agent that can generate, validate, and persist scraping scripts against the Mercator demo catalog.
 
 ## Getting Started
+
+Install dependencies:
 
 ```bash
 pnpm install
 ```
 
-Run the lint and test suites before opening a pull request:
+Create a `.env` file inside `apps/mastra` (or export the variable in your shell) with an API key supported by the Vercel AI SDK. OpenAI and OpenRouter keys both work:
 
 ```bash
-pnpm lint
-pnpm test
+OPENAI_API_KEY=sk-your-key
 ```
 
-To exercise the vertical slice manually, point the runner at a URL. The initial stub maps the Mercator demo fixture and falls back to a tiny generic snippet for unknown domains.
+## Local Development
+
+Launch the Mastra playground:
 
 ```bash
-pnpm dev:agents https://demo.mercator.sh/products/precision-pour-over-kettle
+pnpm dev:agents
 ```
 
-The command prints a one-line summary plus the paths to the generated history JSONL file and the persisted domain knowledge record.
+The command filters down to `apps/mastra` and runs `mastra dev`, which boots the studio with the extractor agent, file-backed memory, domain knowledge storage, and the tools it depends on.
+
+Run the deterministic demo script without opening the studio:
+
+```bash
+pnpm demo:agents https://mercator.test/products/simple
+```
+
+The demo drives the extractor agent end to end. It reuses a stored script when one exists, or synthesizes a new script by using the registered tools to inspect HTML, validate Cheerio output, and persist the result.
 
 ## Repository Layout
 
 ```
 apps/
-  service/       # Minimal Mastra playground with runner, agent, tools, and tests
-fixtures/        # HTML fixture data consumed by the HTML utilities/tool
+  mastra/        # Mastra workspace with agents, memory, resources, tools, and config
+fixtures/        # HTML fixtures used by the extractor tools
 packages/
-  html-utils/    # Shared helpers for resolving fixture HTML
+  html-utils/    # Shared helpers (currently unused, retained for upcoming work)
 ```
 
-Runtime artifacts (history, domain knowledge) are written to `apps/service/.runtime/` and are ignored by Git.
+## Current Slice
 
-## Development Loop
+The base Mastra project mirrors the manual setup instructions from the Mastra docs with ai-sdk v5 compatibility applied:
 
-The current end-to-end loop intentionally mirrors the "Hello World" slice described in the plan:
+1. `apps/mastra/src/mastra/tools` hosts the HTML loader, Cheerio execution harness, and resource persistence helpers.
+2. `apps/mastra/src/mastra/resources/domain-knowledge.ts` stores extractor scripts per domain.
+3. `apps/mastra/src/mastra/memory/domain-memory.ts` implements a lightweight file-backed memory so the agent can recall past runs.
+4. `apps/mastra/src/mastra/agents/extractor-agent.ts` registers the extractor agent that orchestrates tool usage and script persistence.
+5. `apps/mastra/src/demo.ts` exposes a small entry point used by `pnpm demo:agents` to call the agent from the terminal.
 
-1. `apps/service/src/tools/html/load-fixture-html.tool.ts` returns fixture HTML (or a generic fallback) for a requested URL via the shared utility package.
-2. `apps/service/src/agent/scraper-agent.ts` asks a Mastra agent to produce a Cheerio IIFE string. When `OPENAI_API_KEY` is defined it calls OpenAI; otherwise it falls back to a deterministic script. Persisted scripts are still reused when available.
-3. `apps/service/src/utils/run-cheerio-script.ts` executes the IIFE inside a guarded sandbox.
-4. `apps/service/src/validation/validate-extraction.ts` checks for non-empty `{ title, price }` fields.
-5. `apps/service/src/memory/domain-knowledge.ts` stores scripts per domain/path so the second run can skip regeneration.
-6. `apps/service/src/history/history.ts` appends concise JSONL lines for each step (start → tool call → codegen → execution → validation → persistence).
-7. `apps/service/src/runner.ts` ties everything together and exposes the CLI entry point.
+## Next Steps
 
-`apps/service/src/runner.test.ts` proves the loop works by running the scraper twice against the kettle fixture: the first run generates and persists a script, and the second run reuses it.
-
-## Current State & Next Steps
-
-- Firecrawl, Playwright, and the broader agent orchestration stack have been removed from the critical path until the stubbed loop hardens.
-- All follow-up work (executing the script against real HTML, adding hints, introducing additional tools, layering in multi-agent workflows, etc.) should be implemented as **tiny vertical slices** that extend this baseline end-to-end.
-- Open questions, experiments, and backlog items belong in the plan document and the iteration task files—update them whenever a slice lands so future contributors can continue iterating safely.
-
-If a change touches the agent/tool/memory loop, update the README and plan to match the new reality.
+- Expand the workspace with additional fixtures and extraction scenarios once the baseline stays stable.
+- Re-introduce shared utilities (fixtures, scraping helpers) as focused slices rather than all at once.
+- Update the backlog files in `docs/tasks/` as new slices land so future contributors can follow the plan.

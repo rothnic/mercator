@@ -23,7 +23,7 @@ Status: **Draft** – Do not start until Iteration I01 is complete and reviewed.
 
 | Priority | Task ID | Description | Depends On | Status | Notes |
 |----------|---------|-------------|------------|--------|-------|
-| 1 | I02-F0-T1 | Replace untyped field extraction maps with structured validation results. | I01-F4-T3 | Todo | Moved from `I01-F4-T5`; removes casts in `apps/service/src/orchestrator/validation.ts`. |
+| 1 | I02-F0-T1 | Replace untyped field extraction maps with structured validation results. | I01-F4-T3 | Todo | Moved from `I01-F4-T5`; targets the legacy validator (previously `apps/service/src/orchestrator/validation.ts`). |
 | 2 | I02-F0-T2 | Add reviewer stub endpoint returning tri-pane payload (screenshot, DOM snippet, JSON diff) for HITL. | I01-F5-T2 | Todo | Deferred from `I01-F5-T3` until after live URL support ships. |
 | 3 | I02-F0-T3 | Stabilize Commander resolution for CLI/tests without `.pnpm` path assumptions. | I01-F5-T2 | Todo | Follows `I01-F5-T5`; move alias logic out of `.pnpm` paths. |
 | 4 | I02-F0-T4 | Remove lifecycle history casts from the LocalFS store. | I01-F5-T1 | Todo | Successor to `I01-F5-T6`; tighten recipe store types. |
