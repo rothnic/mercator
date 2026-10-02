@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>Mercator pilot portal</title>
+  <style>
+    body {
+      font: 16px system-ui;
+      max-width: 850px;
+      margin: 40px auto;
+      color: #152334;
+    }
+    h1 {
+      margin-bottom: 8px;
+    }
+    p {
+      color: #526176;
+    }
+    [role='list'] {
+      height: 205px;
+      overflow-y: auto;
+      border: 1px solid #b5c3d4;
+      border-radius: 10px;
+    }
+    [role='listitem'] {
+      height: 120px;
+      padding: 16px;
+      box-sizing: border-box;
+      border-bottom: 1px solid #dce4ed;
+    }
+    button {
+      background: #194f93;
+      color: white;
+      padding: 9px 14px;
+      border: 0;
+      border-radius: 6px;
+    }
+    [role='dialog'] {
+      margin-top: 24px;
+      padding: 20px;
+      background: #edf3fa;
+      border-radius: 10px;
+    }
+    dt {
+      color: #526176;
+    }
+    dd {
+      margin: 3px 0 12px;
+    }
+  </style>
+  <h1>Mercator pilot portal</h1>
+  <p>Controlled records. Scroll or press End inside the list. Details load asynchronously.</p>
+  <div
+    role="list"
+    aria-label="Records"
+    aria-busy="false"
+    tabindex="0"
+    data-cursor="0"
+    data-complete="false"
+  ></div>
+  <section role="dialog" aria-label="Record details" aria-busy="false" data-record-id="A">
+    <h2>Record details</h2>
+    <dl>
+      <dt>Record ID</dt>
+      <dd data-field="id">A</dd>
+      <dt>Title</dt>
+      <dd data-field="title">Amber notebook</dd>
+      <dt>Amount</dt>
+      <dd data-field="amount">11.25</dd>
+      <dt>Currency</dt>
+      <dd data-field="currency">USD</dd>
+    </dl>
+  </section>
+  <script>
+    // Fixture state is intentionally separate from the tool and evaluator expectations.
+    const records = {
+      A: ['Amber notebook', '11.25', 'USD'],
+      B: ['Birch keyboard', '42.50', 'USD'],
+      C: ['Cobalt lamp', '23.75', 'USD'],
+      D: ['Dune monitor', '99.00', 'EUR'],
+      E: ['Elm headset', '67.80', 'EUR'],
+    };
+    const mode = location.hash.slice(1) || 'base';
+    const pages =
+      mode === 'holdout'
+        ? [
+            ['D', 'A'],
+            ['A', 'E'],
+            ['B', 'C'],
+          ]
+        : [
+            ['A', 'B'],
+            ['B', 'C'],
+            ['D', 'E'],
+          ];
+    const list = document.querySelector('[role=list]');
+    const panel = document.querySelector('[role=dialog]');
+    let cursor = 0;
+    function details(requestedId) {
+      panel.setAttribute('aria-busy', 'true');
+      // Previous record and fields remain visible until the delayed response arrives.
+      if (mode === 'timeout') return;
+      setTimeout(
+        () => {
+          const returnedId = mode === 'wrong-record' ? 'A' : requestedId;
+          const [title, amount, currency] = records[returnedId];
+          panel.querySelector('[data-field=id]').textContent = returnedId;
+          panel.querySelector('[data-field=title]').textContent = title;
+          panel.querySelector('[data-field=amount]').textContent = amount;
+          panel.querySelector('[data-field=currency]').textContent = currency;
+          panel.setAttribute('data-record-id', requestedId);
+          panel.setAttribute('aria-busy', 'false');
+        },
+        mode === 'holdout' ? 160 : 80,
+      );
+    }
+    function render() {
+      // Replace the rows instead of accumulating DOM nodes; page 1 repeats a boundary record.
+      list.replaceChildren();
+      for (const id of pages[cursor]) {
+        const row = document.createElement('div');
+        row.setAttribute('role', 'listitem');
+        row.setAttribute('data-record-id', id);
+        const label = document.createElement('p');
+        label.textContent = `${id}: ${records[id][0]}`;
+        const button = document.createElement('button');
+        button.textContent = mode === 'drift' ? 'Inspect record' : 'View details';
+        button.addEventListener('click', () => details(id));
+        row.append(label, button);
+        list.append(row);
+      }
+      list.scrollTop = 0;
+      list.setAttribute(
+        'data-cursor',
+        mode === 'malformed-cursor' ? '999999999999999999999999' : String(cursor),
+      );
+      list.setAttribute('data-complete', String(cursor === pages.length - 1));
+      list.setAttribute('aria-busy', 'false');
+    }
+    function advance() {
+      if (cursor >= pages.length - 1 || list.getAttribute('aria-busy') === 'true') return;
+      list.setAttribute('aria-busy', 'true');
+      if (mode === 'stalled') return;
+      setTimeout(() => {
+        cursor += 1;
+        render();
+      }, 70);
+    }
+    list.addEventListener('scroll', () => {
+      if (list.scrollTop + list.clientHeight >= list.scrollHeight - 2) advance();
+    });
+    list.addEventListener('keydown', (event) => {
+      if (event.key === 'End') {
+        event.preventDefault();
+        advance();
+      }
+    });
+    render();
+  </script>
+</html>
