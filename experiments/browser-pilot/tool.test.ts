@@ -10,7 +10,7 @@ test("invalid record identifiers and execution budgets are rejected", () => {
 		{ recordId: "" },
 		{ recordId: 'B"]' },
 		{ recordId: "B", maxPages: 0 },
-		{ recordId: "B", maxRecords: NaN },
+		{ recordId: "B", maxRecords: Number.NaN },
 		{ recordId: "B", timeoutMs: 60001 },
 	]) {
 		expect(() => Reflect.apply(validateInput, undefined, [input])).toThrow(

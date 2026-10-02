@@ -5,7 +5,8 @@ Base source: Mercator main `48d08e55da9d4d27991b10bc8f7f8436f81da2e8`. Reviewed 
 - Complete: isolated typed detail tool, dynamic fixture, independent semantic expectations, explicit coverage, bounds and unsupported-target checks.
 - Complete: two Bun checks (input validation; oracle rejection of plausible wrong output).
 - Complete: bounded native Codex worker entry point; authenticated ChatGPT status verified. Actual native execution fails under this session's filesystem/process restrictions.
-- Pending: browser acceptance and deliberate drift repair. Version 0.1.0 is an unaccepted candidate; its changed-button case should fail the unchanged oracle.
+- Complete: initial browser acceptance ran in GitHub Actions, passing 11/12 and failing only the deliberate changed-button drift. The formatted baseline also keeps that failure visible.
+- Pending: version 0.2.0 repair acceptance. The revised selector keeps the formatted baseline's acceptance file byte-identical; no expected data or status was weakened.
 - Pending: qualify Libretto against the same task and model budget, after ordinary browser baseline runs.
 - Pending: a real read-only website contract and narrow canary.
 

@@ -1,6 +1,6 @@
 import type { Page } from "playwright-core";
 
-export const TOOL_VERSION = "portal-details/0.1.0";
+export const TOOL_VERSION = "portal-details/0.2.0";
 
 export type ToolInput = {
 	recordId: string;
@@ -130,7 +130,10 @@ export async function getRecordDetails(
 				if (id !== input.recordId) continue;
 				const row = list.locator(`[data-record-id="${input.recordId}"]`);
 				await row
-					.getByRole("button", { name: "View details", exact: true })
+					.getByRole("button", {
+						name: /^(View details|Inspect record)$/,
+						exact: true,
+					})
 					.click({ timeout: remaining() });
 				const panel = page.locator(
 					`[role="dialog"][data-record-id="${input.recordId}"][aria-busy="false"]`,
