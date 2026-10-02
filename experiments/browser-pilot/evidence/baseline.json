@@ -1,0 +1,244 @@
+{
+	"verifiedAt": "2026-10-02T17:21:09.575Z",
+	"toolSha256": "502555492cfbdaadb31007be57415f46d82be65f6cc4f26454bfbc6c4961b425",
+	"acceptanceSha256": "17aef90f71e7784bcd116de0ce610136dd0a06140b052b49641b72a550bceaed",
+	"browserVersion": "145.0.7632.6",
+	"transport": "playwright-headless",
+	"passed": 11,
+	"failed": 1,
+	"results": [
+		{
+			"case": "delayed detail rejects stale A",
+			"passed": true,
+			"elapsedMs": 186,
+			"output": {
+				"status": "ok",
+				"record": {
+					"id": "B",
+					"title": "Birch keyboard",
+					"amount": "42.50",
+					"currency": "USD"
+				},
+				"coverage": {
+					"ids": ["A", "B"],
+					"complete": false,
+					"stopReason": "requested_record_loaded"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "virtual rows and duplicate boundary",
+			"passed": true,
+			"elapsedMs": 368,
+			"output": {
+				"status": "ok",
+				"record": {
+					"id": "E",
+					"title": "Elm headset",
+					"amount": "67.80",
+					"currency": "EUR"
+				},
+				"coverage": {
+					"ids": ["A", "B", "C", "D", "E"],
+					"complete": false,
+					"stopReason": "requested_record_loaded"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "complete missing record",
+			"passed": true,
+			"elapsedMs": 238,
+			"output": {
+				"status": "not_found",
+				"record": null,
+				"coverage": {
+					"ids": ["A", "B", "C", "D", "E"],
+					"complete": true,
+					"stopReason": "declared_end"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "bounded record coverage",
+			"passed": true,
+			"elapsedMs": 230,
+			"output": {
+				"status": "partial",
+				"record": null,
+				"coverage": {
+					"ids": ["A", "B", "C"],
+					"complete": false,
+					"stopReason": "record_limit"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "bounded page coverage",
+			"passed": true,
+			"elapsedMs": 58,
+			"output": {
+				"status": "partial",
+				"record": null,
+				"coverage": {
+					"ids": ["A", "B"],
+					"complete": false,
+					"stopReason": "page_limit"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "wrong-record response rejected",
+			"passed": true,
+			"elapsedMs": 264,
+			"output": {
+				"status": "failed",
+				"record": null,
+				"coverage": {
+					"ids": ["A", "B"],
+					"complete": false,
+					"stopReason": "invalid_detail_identity_or_fields"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "never-loaded detail fails",
+			"passed": true,
+			"elapsedMs": 302,
+			"output": {
+				"status": "failed",
+				"record": null,
+				"coverage": {
+					"ids": ["A", "B"],
+					"complete": false,
+					"stopReason": "timeout_or_changed_page"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "stalled scroll fails",
+			"passed": true,
+			"elapsedMs": 300,
+			"output": {
+				"status": "failed",
+				"record": null,
+				"coverage": {
+					"ids": ["A", "B"],
+					"complete": false,
+					"stopReason": "timeout_or_changed_page"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "held-out order and timing",
+			"passed": true,
+			"elapsedMs": 332,
+			"output": {
+				"status": "ok",
+				"record": {
+					"id": "E",
+					"title": "Elm headset",
+					"amount": "67.80",
+					"currency": "EUR"
+				},
+				"coverage": {
+					"ids": ["D", "A", "E"],
+					"complete": false,
+					"stopReason": "requested_record_loaded"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "malformed cursor fails",
+			"passed": true,
+			"elapsedMs": 44,
+			"output": {
+				"status": "failed",
+				"record": null,
+				"coverage": {
+					"ids": [],
+					"complete": false,
+					"stopReason": "unsupported_list_state"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "unsupported target",
+			"passed": true,
+			"elapsedMs": 0,
+			"output": {
+				"status": "unsupported",
+				"record": null,
+				"coverage": {
+					"ids": [],
+					"complete": false,
+					"stopReason": "unsupported_target"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			}
+		},
+		{
+			"case": "selector drift",
+			"passed": false,
+			"elapsedMs": 301,
+			"output": {
+				"status": "failed",
+				"record": null,
+				"coverage": {
+					"ids": ["A", "B"],
+					"complete": false,
+					"stopReason": "timeout_or_changed_page"
+				},
+				"receipt": {
+					"toolVersion": "portal-details/0.1.0",
+					"modelCalls": 0
+				}
+			},
+			"error": "selector drift\n\n'failed' !== 'ok'\n"
+		}
+	],
+	"ciRunUrl": "https://github.com/rothnic/mercator/actions/runs/37040044966"
+}
