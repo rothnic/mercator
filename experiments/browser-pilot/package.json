@@ -1,13 +1,13 @@
 {
-  "name": "@mercator/browser-pilot",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "test": "bun test",
-    "replay": "bun run replay.ts",
-    "worker": "bun run worker.ts"
-  },
-  "dependencies": {
-    "playwright-core": "1.58.2"
-  }
+	"name": "@mercator/browser-pilot",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"test": "bun test",
+		"replay": "bun run replay.ts",
+		"worker": "bun run worker.ts"
+	},
+	"dependencies": {
+		"playwright-core": "1.58.2"
+	}
 }

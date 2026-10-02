@@ -22,3 +22,6 @@ The repository has been reset to a **stub-first vertical slice** so new contribu
 4. **Single fixture coverage.** The runner only sees `product-simple.html`. Adding the alternate fixture (I01-F2-T4) is critical for measuring reuse vs regeneration.
 
 Document additional findings here as new slices land so the next agent can pick up the thread quickly.
+## Browser pilot, October 2, 2026
+
+An isolated pilot in `experiments/browser-pilot` now checks record identity, delayed details, replaced rows, duplicate boundaries, bounded coverage, malformed cursors, unsupported targets, and explicit failures. The initial CI replay passed 11/12 cases and exposed the deliberate changed-button drift; it did not accept that candidate. Follow [browser pilot tasks](../tasks/browser-pilot.md) for repair and validation status. Native subscription execution remains blocked by this ChatGPT session's runtime restrictions; the portable worker is not a production admission service.
