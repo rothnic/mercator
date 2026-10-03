@@ -1,0 +1,11 @@
+{
+	"type": "object",
+	"properties": {
+		"summary": { "type": "string" },
+		"changed_files": { "type": "array", "items": { "type": "string" } },
+		"checks_run": { "type": "array", "items": { "type": "string" } },
+		"remaining_limits": { "type": "array", "items": { "type": "string" } }
+	},
+	"required": ["summary", "changed_files", "checks_run", "remaining_limits"],
+	"additionalProperties": false
+}

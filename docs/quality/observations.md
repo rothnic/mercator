@@ -22,3 +22,11 @@ The repository has been reset to a **stub-first vertical slice** so new contribu
 4. **Single fixture coverage.** The runner only sees `product-simple.html`. Adding the alternate fixture (I01-F2-T4) is critical for measuring reuse vs regeneration.
 
 Document additional findings here as new slices land so the next agent can pick up the thread quickly.
+## Browser pilot, October 2, 2026
+
+An isolated pilot in `experiments/browser-pilot` now checks record identity, delayed details, replaced rows, duplicate boundaries, bounded coverage, malformed cursors, unsupported targets, and explicit failures. The initial CI replay passed 11/12 cases and exposed the deliberate changed-button drift; it did not accept that candidate. Follow [browser pilot tasks](../tasks/browser-pilot.md) for repair and validation status. Native subscription execution remains blocked by this ChatGPT session's runtime restrictions; the portable worker is not a production admission service.
+# Browser pilot review — October 3, 2026
+
+PR 17 review found that rejected candidates or the outer case deadline could abort replay before writing evidence. The harness now captures those failures and continues; a Bun regression check verifies rejection, a hung promise, and a successful later case. Tool and independent acceptance sources are unchanged. `bun test`: 3 passed, 0 failed. Browser and root checks run in GitHub Actions because local Chromium/listening and native Codex initialization remain restricted. Luna 6 reviewed the tool/acceptance and found no further merge blocker in the controlled fixture scope.
+
+Next worker gap: `candidate_available` currently trusts process exit 0 and shared output paths. Job-scoped output, fresh structured-result validation, and bounded preflight should precede unattended refinement. See [browser-pilot task](../tasks/browser-pilot.md).

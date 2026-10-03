@@ -56,3 +56,6 @@ The current end-to-end loop intentionally mirrors the "Hello World" slice descri
 - Open questions, experiments, and backlog items belong in the plan document and the iteration task files—update them whenever a slice lands so future contributors can continue iterating safely.
 
 If a change touches the agent/tool/memory loop, update the README and plan to match the new reality.
+# Browser-tool refinement pilot
+
+See [experiments/browser-pilot](experiments/browser-pilot/README.md) for the isolated subscription-backed authoring and deterministic replay experiment. It leaves the current service unchanged and adds its own browser acceptance workflow.
