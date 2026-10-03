@@ -68,8 +68,8 @@ if (args[0] === "login") {
 		CODEX_API_KEY: process.env.CODEX_API_KEY,
 	};
 	process.env.PATH = bin; // A missing fixture cannot fall through to real Codex.
-	delete process.env.OPENAI_API_KEY;
-	delete process.env.CODEX_API_KEY;
+	Reflect.deleteProperty(process.env, "OPENAI_API_KEY");
+	Reflect.deleteProperty(process.env, "CODEX_API_KEY");
 	try {
 		await check(directory);
 	} finally {
@@ -80,7 +80,7 @@ if (args[0] === "login") {
 			process.kill(pid, "SIGKILL");
 		} catch {} // The fixture descendant may already have exited.
 		for (const [name, value] of Object.entries(previous)) {
-			if (value === undefined) delete process.env[name];
+			if (value === undefined) Reflect.deleteProperty(process.env, name);
 			else process.env[name] = value;
 		}
 		await rm(directory, { recursive: true, force: true });
