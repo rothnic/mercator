@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { chromium, type Browser } from "playwright-core";
 import { createServer } from "node:http";
-import { cases, checkCase } from "./acceptance";
+import { cases } from "./acceptance";
+import { runCase } from "./case-runner";
 import { getRecordDetails } from "./tool";
 
 const results = [];
@@ -42,35 +43,11 @@ try {
 			await page.goto(
 				`${origin}/${test.mode === "unsupported" ? "unsupported" : "fixture"}#${test.mode}`,
 			);
-			const started = performance.now();
-			let deadline: ReturnType<typeof setTimeout> | undefined;
-			const output = await Promise.race([
+			const receipt = await runCase(test, () =>
 				getRecordDetails(page, test.input),
-				new Promise<never>((_, reject) => {
-					deadline = setTimeout(
-						() => reject(new Error("case deadline exceeded")),
-						(test.input.timeoutMs ?? 5000) + 3000,
-					);
-				}),
-			]).finally(() => clearTimeout(deadline));
-			try {
-				checkCase(test, output);
-				results.push({
-					case: test.name,
-					passed: true,
-					elapsedMs: Math.round(performance.now() - started),
-					output,
-				});
-			} catch (error) {
-				failures += 1;
-				results.push({
-					case: test.name,
-					passed: false,
-					elapsedMs: Math.round(performance.now() - started),
-					output,
-					error: error instanceof Error ? error.message : String(error),
-				});
-			}
+			);
+			results.push(receipt);
+			if (!receipt.passed) failures += 1;
 		} finally {
 			await context.close();
 		}

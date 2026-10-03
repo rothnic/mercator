@@ -31,4 +31,6 @@ Immediate next steps: run the native subscription worker on an owned machine whe
 
 Local verification in ChatGPT Work Mode: two Bun tests pass and the tool, evaluator, and replay pass a strict TypeScript check with cached tooling. Shell GitHub DNS, loopback listening, native Codex initialization, and headless Chromium are blocked by this execution sandbox. A Chrome connection exists, but inline `data:` fixture navigation is blocked by its URL policy. No browser acceptance result is claimed from those attempts. The dedicated GitHub Actions workflow supplies the verified normal HTTP/Chromium test path without coding-provider credentials.
 
+The review adds a third Bun check for rejected and hung candidates: each becomes a failed receipt, later cases continue, and the harness closes that case's browser context. Browser startup or fixture-server failure remains an infrastructure error.
+
 Use `results/` for local logs; it is ignored. Share only reviewed summaries. Keep site cookies and coding-account secrets out of repository artifacts.

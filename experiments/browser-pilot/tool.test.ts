@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test";
 import { validateInput } from "./tool";
 import { cases, checkCase } from "./acceptance";
+import { runCase } from "./case-runner";
 
 test("invalid record identifiers and execution budgets are rejected", () => {
 	for (const input of [
@@ -37,4 +38,24 @@ test("independent acceptance rejects plausible wrong record", () => {
 			receipt: { toolVersion: "mutant", modelCalls: 0 },
 		}),
 	).toThrow();
+});
+
+test("rejected and hung candidates preserve failed receipts and later cases", async () => {
+	const rejected = await runCase(cases[0], async () => {
+		throw new Error("candidate crashed");
+	});
+	const hung = await runCase(cases[0], () => new Promise(() => {}), 10);
+	const later = await runCase(cases[0], async () => ({
+		status: "ok",
+		record: cases[0].record ?? null,
+		coverage: { ids: ["A", "B"], complete: false, stopReason: "loaded" },
+		receipt: { toolVersion: "test", modelCalls: 0 },
+	}));
+	expect([rejected.passed, hung.passed, later.passed]).toEqual([
+		false,
+		false,
+		true,
+	]);
+	expect(rejected.error).toBe("candidate crashed");
+	expect(hung.error).toBe("case deadline exceeded");
 });
